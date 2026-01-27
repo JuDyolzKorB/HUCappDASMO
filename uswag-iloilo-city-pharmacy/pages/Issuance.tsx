@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Requisition, CentralInventoryBatch, Item, User, Issuance, IssuanceItem, RequisitionItem } from '../types';
 import Badge from '../components/Badge';
@@ -77,9 +76,9 @@ const IssuanceModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-[var(--color-bg-surface)] rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <h3 className="text-xl font-semibold text-[var(--color-text-base)] mb-4">Process Issuance for {requisition.RequisitionNumber}</h3>
-                <div className="flex-grow overflow-y-auto pr-2">
+            <div className="bg-[var(--color-bg-surface)] rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col modal-content">
+                <h3 className="text-xl font-semibold text-[var(--color-text-base)] mb-6">Process Issuance for {requisition.RequisitionNumber}</h3>
+                <div className="flex-grow overflow-y-auto pr-2 -mx-6 px-6">
                     {cart.map((item) => (
                         <div key={item.requisitionItemId} className="mb-4 p-4 border border-[var(--color-border)] rounded-lg">
                             <div className="flex justify-between items-center mb-2">
@@ -98,7 +97,7 @@ const IssuanceModal: React.FC<{
                                     </div>
                                 </div>
                             )}
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm mt-3">
                                 <thead><tr className="text-left text-xs uppercase text-[var(--color-text-muted)]"><th>Batch (Expiry)</th><th>Available</th><th>Issuing</th></tr></thead>
                                 <tbody>
                                 {item.allocations.map((alloc) => {
@@ -125,7 +124,7 @@ const IssuanceModal: React.FC<{
                         </div>
                     ))}
                 </div>
-                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-[var(--color-border)]">
+                <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-[var(--color-border)]">
                     <button onClick={onClose} className="btn btn-secondary">Cancel</button>
                     <button onClick={onInitiateAdjustment} className={`btn transition-all duration-300 ${hasShortage ? 'btn-primary animate-pulse' : 'btn-secondary'}`}>Adjust Quantities</button>
                     <button onClick={handleSubmit} disabled={!canProcess} className="btn btn-primary">Process Issuance</button>
@@ -139,7 +138,7 @@ const AdjustmentModal: React.FC<{
     requisition: Requisition;
     items: Item[];
     onClose: () => void;
-    onAdjust: (adjustments: { requisitionItemId: string; newQuantity: number }[], reason: string) => void;
+    onAdjust: (requisitionId: string, adjustments: { requisitionItemId: string; newQuantity: number }[], reason: string) => void;
 }> = ({ requisition, items, onClose, onAdjust }) => {
     const [adjustments, setAdjustments] = useState<{[key: string]: number | ''}>(
         requisition.RequisitionItems.reduce((acc, item) => ({...acc, [item.RequisitionItemID]: item.QuantityRequested}), {})
@@ -168,16 +167,16 @@ const AdjustmentModal: React.FC<{
             });
         
         if(adjustmentData.length > 0 && reason) {
-            onAdjust(adjustmentData, reason);
+            onAdjust(requisition.RequisitionID, adjustmentData, reason);
             onClose();
         }
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-[var(--color-bg-surface)] rounded-xl shadow-xl p-6 w-full max-w-2xl">
-                <h3 className="text-xl font-semibold text-[var(--color-text-base)] mb-4">Adjust Quantities for {requisition.RequisitionNumber}</h3>
-                 <div className="space-y-3 text-[var(--color-text-base)]">
+            <div className="bg-[var(--color-bg-surface)] rounded-xl shadow-xl p-6 w-full max-w-2xl modal-content">
+                <h3 className="text-xl font-semibold text-[var(--color-text-base)] mb-6">Adjust Quantities for {requisition.RequisitionNumber}</h3>
+                 <div className="space-y-4 text-[var(--color-text-base)]">
                     {requisition.RequisitionItems.map(item => (
                         <div key={item.RequisitionItemID} className="flex items-center justify-between">
                             <span className="font-medium">{getItemName(item.ItemID)}</span>
@@ -191,11 +190,11 @@ const AdjustmentModal: React.FC<{
                         </div>
                     ))}
                  </div>
-                 <div className="mt-4">
+                 <div className="mt-6">
                     <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Reason for Adjustment</label>
                     <textarea value={reason} onChange={e => setReason(e.target.value)} className="form-input" rows={3}></textarea>
                  </div>
-                <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-[var(--color-border)]">
+                <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-[var(--color-border)]">
                     <button onClick={onClose} className="btn btn-secondary">Cancel</button>
                     <button onClick={handleSubmit} className="btn btn-primary">Save Adjustments</button>
                 </div>
@@ -244,22 +243,27 @@ const IssuancePage: React.FC<{
                 };
             });
     };
+     const getUserName = (userId: string) => {
+        const user = users.find(u => u.UserID === userId);
+        return user ? `${user.FirstName} ${user.LastName}` : 'Unknown';
+    }
+     const getRequisitionNumber = (requisitionId: string) => requisitions.find(r => r.RequisitionID === requisitionId)?.RequisitionNumber;
 
     return (
         <>
-        <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
-            <div className="flex justify-between items-center mb-4 border-b border-[var(--color-border)] pb-4">
+        <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl border border-[var(--color-border)] shadow-sm">
+            <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-[var(--color-text-base)]">Issuance</h2>
-                <div className="flex space-x-1 bg-[var(--color-bg-muted)] p-1 rounded-lg">
-                    <button onClick={() => setActiveTab('pending')} className={`px-4 py-1.5 text-sm font-semibold rounded-md ${activeTab === 'pending' ? 'bg-[var(--color-bg-surface)] shadow text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}>Pending for Issuance</button>
-                    <button onClick={() => setActiveTab('history')} className={`px-4 py-1.5 text-sm font-semibold rounded-md ${activeTab === 'history' ? 'bg-[var(--color-bg-surface)] shadow text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}>Issuance History</button>
+                <div className="flex space-x-1 bg-[var(--color-bg-base)] p-1 rounded-lg">
+                    <button onClick={() => setActiveTab('pending')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === 'pending' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-white/50'}`}>Pending for Issuance</button>
+                    <button onClick={() => setActiveTab('history')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === 'history' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-white/50'}`}>Issuance History</button>
                 </div>
             </div>
 
             {activeTab === 'pending' && (
                 <div className="table-wrapper">
                     <table className="custom-table">
-                        <thead><tr><th>Req #</th><th>Health Center</th><th>Date Approved</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Req #</th><th>Health Center</th><th>Date Approved</th><th>Status</th><th>Action</th></tr></thead>
                         <tbody>
                             {pendingRequisitions.map(req => {
                                 const approval = req.ApprovalLogs.find(log => log.Decision === 'Approved');
@@ -268,8 +272,9 @@ const IssuancePage: React.FC<{
                                     <td className="font-medium text-[var(--color-text-base)]">{req.RequisitionNumber}</td>
                                     <td>{req.HealthCenterName}</td>
                                     <td>{approval ? new Date(approval.DecisionDate).toLocaleDateString() : 'N/A'}</td>
+                                    <td><Badge status={req.StatusType}/></td>
                                     <td>
-                                        <button onClick={() => setSelectedReqForIssuance(req)} className="btn btn-primary btn-sm px-3 py-1">Process</button>
+                                        <button onClick={() => setSelectedReqForIssuance(req)} className="font-medium text-[var(--color-primary)] hover:underline">Process</button>
                                     </td>
                                 </tr>
                                 );
@@ -294,7 +299,6 @@ const IssuancePage: React.FC<{
                         </thead>
                         <tbody>
                             {issuances.map(iss => {
-                                const requisition = requisitions.find(r => r.RequisitionID === iss.RequisitionID);
                                 return (
                                 <React.Fragment key={iss.IssuanceID}>
                                     <tr className="cursor-pointer hover:bg-[var(--color-bg-muted)]" onClick={() => handleToggleIssuance(iss.IssuanceID)}>
@@ -304,35 +308,37 @@ const IssuancePage: React.FC<{
                                             </svg>
                                         </td>
                                         <td className="font-medium text-[var(--color-text-base)]">{iss.IssuanceID}</td>
-                                        <td>{requisition?.RequisitionNumber || 'N/A'}</td>
-                                        <td>{iss.IssuedByFullName}</td>
+                                        <td>{getRequisitionNumber(iss.RequisitionID)}</td>
+                                        <td>{getUserName(iss.UserID)}</td>
                                         <td>{new Date(iss.IssuedDate).toLocaleString()}</td>
                                     </tr>
                                     {expandedIssuance === iss.IssuanceID && (
                                         <tr>
-                                            <td colSpan={5} className="p-4 bg-[var(--color-bg-muted)]">
-                                                <div className="px-4">
-                                                    <h4 className="font-semibold mb-2 text-[var(--color-text-base)]">Issued Items</h4>
-                                                    <table className="w-full text-sm">
-                                                        <thead className="text-xs text-[var(--color-text-muted)] uppercase bg-[var(--color-border)]">
-                                                            <tr>
-                                                                <th className="px-4 py-2 text-left">Item</th>
-                                                                <th className="px-4 py-2 text-left">Batch ID</th>
-                                                                <th className="px-4 py-2 text-left">Expiry Date</th>
-                                                                <th className="px-4 py-2 text-right">Quantity Issued</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {getIssuanceDetails(iss.IssuanceID).map(detail => (
-                                                                <tr key={detail.issuanceItemId} className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]">
-                                                                    <td className="px-4 py-2">{detail.itemName}</td>
-                                                                    <td className="px-4 py-2 font-mono">{detail.batchId}</td>
-                                                                    <td className="px-4 py-2">{detail.expiryDate}</td>
-                                                                    <td className="px-4 py-2 text-right font-medium">{detail.quantityIssued.toLocaleString()}</td>
+                                            <td colSpan={5} className="p-0">
+                                                <div className="p-4 bg-slate-50 dark:bg-slate-900/50">
+                                                    <div className="px-2">
+                                                        <h4 className="font-semibold mb-2 text-[var(--color-text-base)]">Issued Items</h4>
+                                                        <table className="w-full text-sm">
+                                                            <thead className="text-xs text-[var(--color-text-muted)] uppercase bg-[var(--color-border)]">
+                                                                <tr>
+                                                                    <th className="px-4 py-2 text-left">Item</th>
+                                                                    <th className="px-4 py-2 text-left">Batch ID</th>
+                                                                    <th className="px-4 py-2 text-left">Expiry Date</th>
+                                                                    <th className="px-4 py-2 text-right">Quantity Issued</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody>
+                                                                {getIssuanceDetails(iss.IssuanceID).map(detail => (
+                                                                    <tr key={detail.issuanceItemId} className="border-b border-[var(--color-border)] bg-[var(--color-bg-surface)]">
+                                                                        <td className="px-4 py-2">{detail.itemName}</td>
+                                                                        <td className="px-4 py-2 font-mono">{detail.batchId}</td>
+                                                                        <td className="px-4 py-2">{detail.expiryDate}</td>
+                                                                        <td className="px-4 py-2 text-right font-medium">{detail.quantityIssued.toLocaleString()}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -371,10 +377,7 @@ const IssuancePage: React.FC<{
                 requisition={selectedReqForAdjustment}
                 items={items}
                 onClose={() => setSelectedReqForAdjustment(null)}
-                onAdjust={(adjustments, reason) => {
-                    onAdjustRequisition(selectedReqForAdjustment.RequisitionID, adjustments, reason);
-                    setSelectedReqForAdjustment(null);
-                }}
+                onAdjust={onAdjustRequisition}
             />
         )}
         </>

@@ -1,7 +1,6 @@
-
 import React from 'react';
 import DashboardCard from '../components/DashboardCard';
-import { Requisition, CentralInventoryBatch, Item, PurchaseOrder } from '../types';
+import { Requisition, CentralInventoryBatch, Item, PurchaseOrder, Page } from '../types';
 import RequisitionsIcon from '../components/icons/RequisitionsIcon';
 import InventoryIcon from '../components/icons/InventoryIcon';
 import AlertIcon from '../components/icons/AlertIcon';
@@ -13,9 +12,10 @@ interface DashboardProps {
   inventory: CentralInventoryBatch[];
   items: Item[];
   purchaseOrders: PurchaseOrder[];
+  setCurrentPage: (page: Page) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ requisitions, inventory, items, purchaseOrders }) => {
+const Dashboard: React.FC<DashboardProps> = ({ requisitions, inventory, items, purchaseOrders, setCurrentPage }) => {
   const pendingRequisitions = requisitions.filter(r => r.StatusType === 'Pending').length;
   const pendingPurchaseOrders = purchaseOrders.filter(po => po.StatusType === 'Pending').length;
   
@@ -29,16 +29,24 @@ const Dashboard: React.FC<DashboardProps> = ({ requisitions, inventory, items, p
   }).length;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <DashboardCard title="Total Inventory Value" value={`$${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<InventoryIcon className="w-8 h-8"/>} color="bg-[var(--color-primary)]" />
-        <DashboardCard title="Pending Requisitions" value={pendingRequisitions.toString()} icon={<RequisitionsIcon className="w-8 h-8"/>} color="bg-[var(--color-warning)]" />
-        <DashboardCard title="Pending Purchase Orders" value={pendingPurchaseOrders.toString()} icon={<POIcon className="w-8 h-8"/>} color="bg-[var(--color-info)]" />
-        <DashboardCard title="Nearly Expired Items" value={nearlyExpiredItems.toString()} icon={<AlertIcon className="w-8 h-8"/>} color="bg-[var(--color-danger)]" />
+        <div onClick={() => setCurrentPage('Inventory')} className="cursor-pointer">
+          <DashboardCard title="Total Inventory Value" value={`$${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<InventoryIcon className="w-8 h-8"/>} color="bg-gradient-teal" />
+        </div>
+        <div onClick={() => setCurrentPage('Requisitions')} className="cursor-pointer">
+          <DashboardCard title="Pending Requisitions" value={pendingRequisitions.toString()} icon={<RequisitionsIcon className="w-8 h-8"/>} color="bg-gradient-amber" />
+        </div>
+        <div onClick={() => setCurrentPage('Purchase Orders')} className="cursor-pointer">
+          <DashboardCard title="Pending Purchase Orders" value={pendingPurchaseOrders.toString()} icon={<POIcon className="w-8 h-8"/>} color="bg-gradient-cyan" />
+        </div>
+        <div onClick={() => setCurrentPage('Inventory')} className="cursor-pointer">
+         <DashboardCard title="Nearly Expired Items" value={nearlyExpiredItems.toString()} icon={<AlertIcon className="w-8 h-8"/>} color="bg-gradient-red" />
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl border border-[var(--color-border)] shadow-sm">
             <h3 className="text-lg font-semibold text-[var(--color-text-base)] mb-4">Recent Requisitions for Approval</h3>
             <div className="table-wrapper">
                 <table className="custom-table">
@@ -67,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ requisitions, inventory, items, p
             </div>
         </div>
 
-        <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
+        <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl border border-[var(--color-border)] shadow-sm">
             <h3 className="text-lg font-semibold text-[var(--color-text-base)] mb-4">Pending Purchase Orders for Approval</h3>
             <div className="table-wrapper">
                 <table className="custom-table">

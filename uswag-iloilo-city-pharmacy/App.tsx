@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -242,7 +241,7 @@ const App: React.FC = () => {
     }
   };
   
-  const updatePurchaseOrderStatus = (poid: string, status: 'Approved' | 'Rejected') => {
+   const updatePurchaseOrderStatus = (poid: string, status: 'Approved' | 'Rejected') => {
     if (!currentUser) return;
     const poToUpdate = purchaseOrders.find(po => po.POID === poid);
 
@@ -507,7 +506,7 @@ const App: React.FC = () => {
         switch (currentUser.Role) {
             case 'Administrator':
             case 'Head Pharmacist':
-                return <Dashboard requisitions={requisitions} inventory={inventory} items={initialItems} purchaseOrders={purchaseOrders} />;
+                return <Dashboard requisitions={requisitions} inventory={inventory} items={initialItems} purchaseOrders={purchaseOrders} setCurrentPage={setCurrentPage} />;
             case 'Health Center Staff':
                 return <HealthCenterDashboard requisitions={requisitions} currentUser={currentUser} setCurrentPage={setCurrentPage} />;
             case 'Warehouse Staff':
@@ -517,14 +516,29 @@ const App: React.FC = () => {
             case 'CMO/GSO/COA User':
                  return <ComplianceDashboard inventory={inventory} items={initialItems} reports={reports} setCurrentPage={setCurrentPage} />;
             default:
-                 return <Dashboard requisitions={requisitions} inventory={inventory} items={initialItems} purchaseOrders={purchaseOrders} />;
+                 return <Dashboard requisitions={requisitions} inventory={inventory} items={initialItems} purchaseOrders={purchaseOrders} setCurrentPage={setCurrentPage} />;
         }
       case 'Requisitions': return <Requisitions requisitions={requisitions} onUpdateStatus={updateRequisitionStatus} onAddRequisition={addRequisition} onUpdateRequisition={handleUpdateRequisition} currentUser={currentUser} />;
       case 'Purchase Orders': return <PurchaseOrdersPage purchaseOrders={purchaseOrders} onAddPurchaseOrder={addPurchaseOrder} currentUser={currentUser} onUpdateStatus={updatePurchaseOrderStatus} />;
       case 'Receiving': return <ReceivingPage purchaseOrders={purchaseOrders} onReceiveItems={handleReceiveItems} currentUser={currentUser} receivings={receivings} users={users} />;
       case 'Inventory': return <Inventory inventory={inventory} items={initialItems} onInitiateAdjustment={handleInitiateAdjustment} />;
       case 'Warehouse': return <WarehousePage warehouses={warehouses} onAddWarehouse={addWarehouse} />;
-      case 'Adjustments': return <AdjustmentsPage notices={noticesOfIssuance} inventory={inventory} items={initialItems} onAddNotice={addNoticeOfIssuance} currentUser={currentUser} requisitions={requisitions} issuances={issuances} issuanceItems={issuanceItems} requisitionAdjustments={requisitionAdjustments} onAddRequisitionAdjustment={addRequisitionAdjustment} adjustmentContext={adjustmentContext} clearAdjustmentContext={() => setAdjustmentContext(null)} />;
+      case 'Adjustments': return <AdjustmentsPage 
+          notices={noticesOfIssuance} 
+          inventory={inventory} 
+          items={initialItems} 
+          onAddNotice={addNoticeOfIssuance} 
+          currentUser={currentUser} 
+          requisitions={requisitions} 
+          issuances={issuances} 
+          issuanceItems={issuanceItems} 
+          requisitionAdjustments={requisitionAdjustments}
+          requisitionAdjustmentDetails={requisitionAdjustmentDetails}
+          onAddRequisitionAdjustment={addRequisitionAdjustment} 
+          adjustmentContext={adjustmentContext} 
+          clearAdjustmentContext={() => setAdjustmentContext(null)} 
+          users={users}
+        />;
       case 'Issuance': return <IssuancePage requisitions={requisitions} inventory={inventory} items={initialItems} currentUser={currentUser} onProcessIssuance={handleProcessIssuance} onAdjustRequisition={handleAdjustRequisitionItems} issuances={issuances} issuanceItems={issuanceItems} users={users} />;
       case 'Reports': return <Reports
           inventory={inventory}
@@ -584,6 +598,7 @@ const App: React.FC = () => {
           userRole={currentUser.Role} 
           isOpen={isSidebarOpen}
           setIsOpen={setIsSidebarOpen}
+          onSignOut={handleOpenSignOutModal}
         />
         {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-30 md:hidden"></div>}
       <div className="flex-1 flex flex-col overflow-hidden">

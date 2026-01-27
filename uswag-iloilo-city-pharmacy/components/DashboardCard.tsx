@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface DashboardCardProps {
@@ -10,7 +9,7 @@ interface DashboardCardProps {
 
 const DashboardCard: React.FC<DashboardCardProps> = ({ title, value, icon, color }) => {
   return (
-    <div className="bg-[var(--color-bg-surface)] p-6 rounded-xl shadow-md flex items-center space-x-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+    <div className="bg-[var(--color-bg-surface)] p-6 rounded-xl border border-[var(--color-border)] shadow-sm flex items-center space-x-6 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
       <div className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center ${color}`}>
         <div className="text-white">
           {icon}

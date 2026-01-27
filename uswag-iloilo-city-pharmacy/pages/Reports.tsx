@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { CentralInventoryBatch, Item, Report, ReportType, OfficeType, User, PurchaseOrder, Receiving, ReceivingItem, Issuance, IssuanceItem, Requisition, NoticeOfIssuance, RequisitionAdjustment, RequisitionAdjustmentDetail } from '../types';
 import ReportViewerModal from '../components/ReportViewerModal';
@@ -39,11 +38,21 @@ const Reports: React.FC<ReportsProps> = (props) => {
         }
     }, [currentUser]);
 
+    const [activeTab, setActiveTab] = useState<'generate' | 'history'>('generate');
     const [reportType, setReportType] = useState<ReportType>(availableReportTypes[0]);
     const [officeType, setOfficeType] = useState<OfficeType>('Accounting');
     const [selectedItemId, setSelectedItemId] = useState<string>(items[0]?.ItemID || '');
     const [selectedPoId, setSelectedPoId] = useState<string>('');
     const [viewingReport, setViewingReport] = useState<Report | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+
+
+    useEffect(() => {
+        if (isGenerating && reports.length > 0 && (!viewingReport || reports[0].ReportID !== viewingReport.ReportID)) {
+            setViewingReport(reports[0]);
+            setIsGenerating(false);
+        }
+    }, [reports, isGenerating, viewingReport]);
 
     useEffect(() => {
         if (availableReportTypes.length > 0 && !availableReportTypes.includes(reportType)) {
@@ -161,80 +170,94 @@ const Reports: React.FC<ReportsProps> = (props) => {
         
         if (reportData) {
             onGenerateReport(reportType, officeType, reportData);
+            setIsGenerating(true);
         }
     };
 
     return (
         <>
-            <div className="space-y-10">
-                <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
-                    <h2 className="text-xl font-semibold text-[var(--color-text-base)] mb-4">Generate New Report</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--color-text-muted)]">Report Type</label>
-                            <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="form-select mt-1">
-                                {availableReportTypes.map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-                        </div>
-                        
-                        {reportType === 'Stock Card & Ledger' && (
+            <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl border border-[var(--color-border)] shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-[var(--color-text-base)]">Reports</h2>
+                    <div className="flex space-x-1 bg-[var(--color-bg-base)] p-1 rounded-lg">
+                        <button onClick={() => setActiveTab('generate')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === 'generate' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-white/50'}`}>Generate Report</button>
+                        <button onClick={() => setActiveTab('history')} className={`px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${activeTab === 'history' ? 'bg-[var(--color-bg-surface)] shadow-sm text-[var(--color-primary)]' : 'text-[var(--color-text-muted)] hover:bg-white/50'}`}>Report History</button>
+                    </div>
+                </div>
+
+                {activeTab === 'generate' && (
+                    <div className="space-y-6">
+                        <h3 className="text-lg font-semibold text-[var(--color-text-base)]">Generate New Report</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
                             <div>
-                                <label className="block text-sm font-medium text-[var(--color-text-muted)]">Item</label>
-                                <select value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} className="form-select mt-1">
-                                    {items.map(item => <option key={item.ItemID} value={item.ItemID}>{item.ItemName}</option>)}
+                                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Report Type</label>
+                                <select value={reportType} onChange={e => setReportType(e.target.value as ReportType)} className="form-select">
+                                    {availableReportTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
                                 </select>
                             </div>
-                        )}
+                            
+                            {reportType === 'Stock Card & Ledger' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Item</label>
+                                    <select value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} className="form-select">
+                                        {items.map(item => <option key={item.ItemID} value={item.ItemID}>{item.ItemName}</option>)}
+                                    </select>
+                                </div>
+                            )}
 
-                        {reportType === 'Receipt Confirmation' && (
-                             <div>
-                                <label className="block text-sm font-medium text-[var(--color-text-muted)]">Completed Purchase Order</label>
-                                <select value={selectedPoId} onChange={e => setSelectedPoId(e.target.value)} className="form-select mt-1">
-                                    {completedPurchaseOrders.map(po => <option key={po.POID} value={po.POID}>{po.PONumber} - {po.SupplierName}</option>)}
+                            {reportType === 'Receipt Confirmation' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">Completed Purchase Order</label>
+                                    <select value={selectedPoId} onChange={e => setSelectedPoId(e.target.value)} className="form-select">
+                                        {completedPurchaseOrders.map(po => <option key={po.POID} value={po.POID}>{po.PONumber} - {po.SupplierName}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">For Office</label>
+                                <select value={officeType} onChange={e => setOfficeType(e.target.value as OfficeType)} className="form-select" disabled={officeOptions.length === 1}>
+                                    {officeOptions.map(opt => <option key={opt} value={opt}>{opt === 'Accounting' ? 'Accounting Office' : opt}</option>)}
                                 </select>
                             </div>
-                        )}
 
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--color-text-muted)]">For Office</label>
-                            <select value={officeType} onChange={e => setOfficeType(e.target.value as OfficeType)} className="form-select mt-1" disabled={officeOptions.length === 1}>
-                                {officeOptions.map(opt => <option key={opt} value={opt}>{opt === 'Accounting' ? 'Accounting Office' : opt}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="lg:col-start-3">
-                            <button onClick={handleGenerate} className="btn btn-primary w-full">Generate Report</button>
+                            <div className="lg:col-start-3">
+                                <button onClick={handleGenerate} className="btn btn-primary w-full">Generate Report</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
-                    <h2 className="text-xl font-semibold text-[var(--color-text-base)] mb-4">Report History</h2>
-                    <div className="table-wrapper">
-                        <table className="custom-table">
-                            <thead>
-                                <tr><th>Report ID</th><th>Type</th><th>Generated For</th><th>Generated By</th><th>Date</th><th>Action</th></tr>
-                            </thead>
-                            <tbody>
-                                {visibleReports.map(report => (
-                                    <tr key={report.ReportID}>
-                                        <td className="font-medium text-[var(--color-text-base)] font-mono">{report.ReportID}</td>
-                                        <td>{report.ReportType}</td>
-                                        <td>{report.GeneratedForOffice}</td>
-                                        <td>{report.GeneratedByFullName}</td>
-                                        <td>{new Date(report.GeneratedDate).toLocaleString()}</td>
-                                        <td>
-                                            <button onClick={() => setViewingReport(report)} className="font-medium text-[var(--color-primary)] hover:underline">View & Print</button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {visibleReports.length === 0 && <p className="text-center p-8 text-[var(--color-text-muted)]">No reports have been generated yet.</p>}
+                )}
+                
+                {activeTab === 'history' && (
+                    <div>
+                         <h3 className="text-lg font-semibold text-[var(--color-text-base)] mb-4">Report History</h3>
+                        <div className="table-wrapper">
+                            <table className="custom-table">
+                                <thead>
+                                    <tr><th>Report ID</th><th>Type</th><th>Generated For</th><th>Generated By</th><th>Date</th><th>Action</th></tr>
+                                </thead>
+                                <tbody>
+                                    {visibleReports.map(report => (
+                                        <tr key={report.ReportID}>
+                                            <td className="font-medium text-[var(--color-text-base)] font-mono">{report.ReportID}</td>
+                                            <td>{report.ReportType}</td>
+                                            <td>{report.GeneratedForOffice}</td>
+                                            <td>{report.GeneratedByFullName}</td>
+                                            <td>{new Date(report.GeneratedDate).toLocaleString()}</td>
+                                            <td>
+                                                <button onClick={() => setViewingReport(report)} className="font-medium text-[var(--color-primary)] hover:underline">View & Print</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {visibleReports.length === 0 && <p className="text-center p-8 text-[var(--color-text-muted)]">No reports have been generated yet.</p>}
+                        </div>
                     </div>
-                </div>
+                )}
+
             </div>
             {viewingReport && <ReportViewerModal report={viewingReport} onClose={() => setViewingReport(null)} />}
         </>

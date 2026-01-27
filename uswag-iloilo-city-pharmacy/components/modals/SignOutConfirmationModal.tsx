@@ -12,7 +12,7 @@ const SignOutConfirmationModal: React.FC<SignOutConfirmationModalProps> = ({ isO
   const modalId = React.useId();
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-md" titleId={modalId}>
-      <div className="p-8 text-center">
+      <div className="p-6 text-center">
         <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/50 dark:to-red-800/50">
           <PowerIcon className="h-8 w-8 text-red-500 dark:text-red-400" />
         </div>
@@ -26,7 +26,7 @@ const SignOutConfirmationModal: React.FC<SignOutConfirmationModalProps> = ({ isO
             </p>
           </div>
         </div>
-        <div className="mt-8 flex justify-center space-x-4">
+        <div className="mt-6 flex justify-center space-x-4">
           <button type="button" onClick={onClose} className="btn btn-secondary w-full">
             Stay Signed In
           </button>

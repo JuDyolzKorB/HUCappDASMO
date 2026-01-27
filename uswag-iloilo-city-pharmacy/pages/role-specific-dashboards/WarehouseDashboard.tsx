@@ -36,9 +36,9 @@ const WarehouseDashboard: React.FC<WarehouseDashboardProps> = ({ requisitions, p
                 </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <DashboardCard title="Requisitions to Issue" value={pendingIssuanceCount.toString()} icon={<IssuanceIcon className="w-8 h-8"/>} color="bg-[var(--color-primary)]" />
-                <DashboardCard title="POs Awaiting Receiving" value={pendingReceivingCount.toString()} icon={<TruckIcon className="w-8 h-8"/>} color="bg-[var(--color-info)]" />
-                <DashboardCard title="Nearly Expired Items" value={nearlyExpiredItems.toString()} icon={<AlertIcon className="w-8 h-8"/>} color="bg-[var(--color-warning)]" />
+                <DashboardCard title="Requisitions to Issue" value={pendingIssuanceCount.toString()} icon={<IssuanceIcon className="w-8 h-8"/>} color="bg-gradient-teal" />
+                <DashboardCard title="POs Awaiting Receiving" value={pendingReceivingCount.toString()} icon={<TruckIcon className="w-8 h-8"/>} color="bg-gradient-cyan" />
+                <DashboardCard title="Nearly Expired Items" value={nearlyExpiredItems.toString()} icon={<AlertIcon className="w-8 h-8"/>} color="bg-gradient-amber" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import EyeIcon from '../components/icons/EyeIcon';
@@ -53,7 +52,7 @@ const SignIn: React.FC<SignInProps> = ({ onSignIn, onSwitchToSignUp, users, onSi
     <div className="min-h-screen flex items-center justify-center animated-gradient p-4">
         <div className="w-full max-w-6xl md:grid md:grid-cols-2 rounded-2xl shadow-xl overflow-hidden bg-[var(--color-bg-surface)]">
              {/* Left Panel - Hero */}
-            <div className="hidden md:flex flex-col justify-center items-center p-8 lg:p-12 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-center">
+            <div className="hidden md:flex flex-col justify-center items-center p-8 lg:p-12 bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-500 text-white text-center">
                 <div className="bg-white/20 p-4 rounded-xl mb-6">
                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 text-white">
                         <path d="M12.378 1.602a.75.75 0 0 0-.756 0L3 6.632l9 5.25 9-5.25-8.622-5.03Z" />

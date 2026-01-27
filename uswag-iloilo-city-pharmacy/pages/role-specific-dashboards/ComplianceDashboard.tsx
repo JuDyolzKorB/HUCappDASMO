@@ -1,4 +1,3 @@
-
 import React from 'react';
 import DashboardCard from '../../components/DashboardCard';
 import { Page, CentralInventoryBatch, Item, Report } from '../../types';
@@ -24,8 +23,8 @@ const ComplianceDashboard: React.FC<ComplianceDashboardProps> = ({ inventory, it
                 <p className="text-sm text-[var(--color-text-muted)]">High-level inventory valuation and reporting summary.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <DashboardCard title="Total Inventory Value" value={`$${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<InventoryIcon className="w-8 h-8"/>} color="bg-[var(--color-primary)]" />
-                <DashboardCard title="Total Reports Generated" value={totalReports.toString()} icon={<ReportsIcon className="w-8 h-8"/>} color="bg-[var(--color-primary)]" />
+                <DashboardCard title="Total Inventory Value" value={`$${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<InventoryIcon className="w-8 h-8"/>} color="bg-gradient-teal" />
+                <DashboardCard title="Total Reports Generated" value={totalReports.toString()} icon={<ReportsIcon className="w-8 h-8"/>} color="bg-gradient-purple" />
                  <div 
                     onClick={() => setCurrentPage('Reports')} 
                     className="bg-[var(--color-bg-surface)] p-5 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 relative overflow-hidden cursor-pointer flex items-center justify-between pl-4 group"
