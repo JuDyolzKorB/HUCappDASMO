@@ -16,7 +16,6 @@ import SettingsIcon from './icons/SettingsIcon';
 import UserCircleIcon from './icons/UserCircleIcon';
 import AlertIcon from './icons/AlertIcon';
 import SignOutIcon from './icons/SignOutIcon';
-// FIX: Import BellIcon to resolve 'Cannot find name' errors.
 import BellIcon from './icons/BellIcon';
 
 interface HeaderProps {
@@ -190,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onSignOut, currentUser, no
 
   return (
     <header className="bg-[var(--color-bg-surface)]/80 backdrop-blur-sm sticky top-0 z-20">
-        <div className="mx-auto py-3 px-4 sm:px-6 lg:px-8 flex justify-between items-center border-b border-[var(--color-border)]">
+        <div className="mx-auto py-3 px-4 sm:px-6 lg:px-8 flex justify-between items-center border-b border-black/5 dark:border-white/10">
           <div className="flex items-center gap-3">
               <button onClick={toggleSidebar} className="md:hidden text-[var(--color-text-muted)] hover:text-[var(--color-primary)]">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -217,7 +216,7 @@ const Header: React.FC<HeaderProps> = ({ currentPage, onSignOut, currentUser, no
               <div className="h-8 w-px bg-[var(--color-border)]"></div>
               <div className="relative" ref={userMenuRef}>
                 <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center space-x-2 group">
-                    <img className="h-9 w-9 rounded-full object-cover ring-2 ring-offset-2 ring-transparent group-hover:ring-[var(--color-success)] transition-all" src={`https://i.pravatar.cc/100?u=${currentUser.UserID}`} alt="User avatar" />
+                    <img className="h-9 w-9 rounded-full object-cover ring-2 ring-offset-2 ring-transparent group-hover:ring-[var(--color-primary)] transition-all" src={`https://i.pravatar.cc/100?u=${currentUser.UserID}`} alt="User avatar" />
                     <div className="text-left hidden sm:block">
                         <p className="text-sm font-semibold text-[var(--color-text-base)]">{`${currentUser.FirstName} ${currentUser.LastName}`}</p>
                         <p className="text-xs text-[var(--color-text-muted)]">{currentUser.Role}</p>

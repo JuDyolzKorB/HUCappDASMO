@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { CentralInventoryBatch, Item } from '../types';
 
@@ -34,8 +33,8 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, items, onInitiateAdjus
   };
 
   return (
-    <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl shadow-md">
+      <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-[var(--color-text-base)]">Inventory Status</h2>
       </div>
       <div className="overflow-x-auto">
@@ -57,7 +56,7 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, items, onInitiateAdjus
                 <tr className="bg-[var(--color-bg-surface)] border-b border-[var(--color-border)] hover:bg-[var(--color-bg-muted)] cursor-pointer" onClick={() => toggleItem(item.ItemID)}>
                   <td className="px-6 py-4">
                      <svg className={`w-5 h-5 transition-transform duration-200 ${expandedItem === item.ItemID ? 'rotate-90' : ''}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 A.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
                     </svg>
                   </td>
                   <td className="px-6 py-4">{item.ItemID}</td>
@@ -69,36 +68,38 @@ const Inventory: React.FC<InventoryProps> = ({ inventory, items, onInitiateAdjus
                 </tr>
                 {expandedItem === item.ItemID && (
                   <tr>
-                    <td colSpan={7} className="p-4 bg-[var(--color-bg-muted)]">
-                      <div className="px-4">
-                        <h4 className="font-semibold mb-2 text-[var(--color-text-base)]">Batches (First-Expiry, First-Out)</h4>
-                        <table className="w-full text-sm text-left text-[var(--color-text-muted)]">
-                           <thead className="text-xs text-[var(--color-text-muted)] uppercase bg-[var(--color-border)]">
-                                <tr>
-                                    <th className="px-4 py-2">Expiry Date</th>
-                                    <th className="px-4 py-2">Quantity</th>
-                                    <th className="px-4 py-2">Cost/Item</th>
-                                    <th className="px-4 py-2">Action</th>
-                                </tr>
-                           </thead>
-                           <tbody>
-                                {item.batches.map((batch, index) => (
-                                    <tr key={batch.BatchID} className={`border-b border-[var(--color-border)] ${index === 0 ? 'bg-[var(--color-success-light)] font-semibold text-[var(--color-text-success)]' : 'bg-[var(--color-bg-surface)]'}`}>
-                                        <td className="px-4 py-2">{new Date(batch.ExpiryDate).toLocaleDateString()}</td>
-                                        <td className="px-4 py-2">{batch.QuantityOnHand.toLocaleString()}</td>
-                                        <td className="px-4 py-2">${batch.UnitCost.toFixed(2)}</td>
-                                        <td className="px-4 py-2">
-                                            <button 
-                                                onClick={() => onInitiateAdjustment(item.ItemID, batch.BatchID)}
-                                                className="px-2 py-1 text-xs font-medium text-white bg-[var(--color-warning)] rounded-md hover:bg-[var(--color-warning-hover)] shadow-sm"
-                                            >
-                                                Adjust
-                                            </button>
-                                        </td>
+                    <td colSpan={7} className="p-0">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-900/50">
+                        <div className="px-2">
+                            <h4 className="font-semibold mb-2 text-[var(--color-text-base)]">Batches (First-Expiry, First-Out)</h4>
+                            <table className="w-full text-sm text-left text-[var(--color-text-muted)]">
+                               <thead className="text-xs text-[var(--color-text-muted)] uppercase bg-[var(--color-border)]">
+                                    <tr>
+                                        <th className="px-4 py-2">Expiry Date</th>
+                                        <th className="px-4 py-2">Quantity</th>
+                                        <th className="px-4 py-2">Cost/Item</th>
+                                        <th className="px-4 py-2">Action</th>
                                     </tr>
-                                ))}
-                           </tbody>
-                        </table>
+                               </thead>
+                               <tbody>
+                                    {item.batches.map((batch, index) => (
+                                        <tr key={batch.BatchID} className={`border-b border-[var(--color-border)] ${index === 0 ? 'bg-[var(--color-success-light)] font-semibold text-[var(--color-text-success)]' : 'bg-[var(--color-bg-surface)]'}`}>
+                                            <td className="px-4 py-2">{new Date(batch.ExpiryDate).toLocaleDateString()}</td>
+                                            <td className="px-4 py-2">{batch.QuantityOnHand.toLocaleString()}</td>
+                                            <td className="px-4 py-2">${batch.UnitCost.toFixed(2)}</td>
+                                            <td className="px-4 py-2">
+                                                <button 
+                                                    onClick={() => onInitiateAdjustment(item.ItemID, batch.BatchID)}
+                                                    className="px-2 py-1 text-xs font-medium text-white bg-[var(--color-warning)] rounded-md hover:bg-[var(--color-warning-hover)] shadow-sm"
+                                                >
+                                                    Adjust
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                               </tbody>
+                            </table>
+                          </div>
                       </div>
                     </td>
                   </tr>

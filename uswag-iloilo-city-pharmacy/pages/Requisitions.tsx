@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Requisition, User, RequisitionItem } from '../types';
 import Badge from '../components/Badge';
@@ -33,7 +32,7 @@ const Requisitions: React.FC<RequisitionsProps> = ({ requisitions, onUpdateStatu
 
   return (
     <>
-      <div className="bg-[var(--color-bg-surface)] p-8 rounded-xl shadow-md">
+      <div className="bg-[var(--color-bg-surface)] p-6 md:p-8 rounded-xl shadow-md">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h2 className="text-2xl font-bold text-[var(--color-text-base)]">Medical Supply Requisitions</h2>
@@ -44,7 +43,7 @@ const Requisitions: React.FC<RequisitionsProps> = ({ requisitions, onUpdateStatu
           </button>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-6">
             <input 
                 type="text"
                 placeholder="Search by Req #, Health Center, or Requester..."

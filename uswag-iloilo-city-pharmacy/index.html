@@ -11,74 +11,105 @@
       :root {
         --font-sans: 'Inter', sans-serif;
 
-        --color-primary: #82C44A;
-        --color-primary-hover: #6FA83B;
-        --color-primary-light: #F2F9EC;
+        /* Brand & Primary Actions */
+        --color-primary: #14B8A6; /* Teal 500 */
+        --color-primary-hover: #0D9488; /* Teal 600 */
+        --color-primary-darker: #0F766E; /* Teal 700 */
+        --color-primary-light: #F0FDFA; /* Teal 50 */
         
+        /* Semantic Colors */
         --color-danger: #EF4444; /* Red 500 */
         --color-danger-hover: #DC2626; /* Red 600 */
+        --color-danger-darker: #b91c1c; /* Red 700 */
         --color-danger-light: #FEE2E2; /* Red 100 */
 
-        --color-success: #82C44A;
-        --color-success-hover: #6FA83B;
-        --color-success-light: #F2F9EC;
+        --color-success: #22c55e; /* Green 500 */
+        --color-success-hover: #16a34a; /* Green 600 */
+        --color-success-darker: #15803d; /* Green 700 */
+        --color-success-light: #f0fdf4; /* Green 50 */
         
         --color-warning: #F59E0B; /* Amber 500 */
         --color-warning-hover: #D97706; /* Amber 600 */
         --color-warning-light: #FEF3C7; /* Amber 100 */
 
-        --color-info: #14B8A6; /* Teal 500 */
-        --color-info-hover: #0D9488; /* Teal 600 */
-        --color-info-light: #CCFBF1; /* Teal 100 */
+        --color-info: #06b6d4; /* Cyan 500 */
+        --color-info-hover: #0891b2; /* Cyan 600 */
+        --color-info-light: #ecfeff; /* Cyan 50 */
         
         --color-orange-light: #FFEDD5; /* Orange 100 */
 
+        /* Text Colors */
         --color-text-base: #1f2937; /* Gray 800 */
         --color-text-muted: #6b7280; /* Gray 500 */
         --color-text-subtle: #9ca3af; /* Gray 400 */
         --color-text-on-primary: #ffffff;
         --color-text-danger: #b91c1c; /* Red 700 */
-        --color-text-success: #3E6022;
+        --color-text-success: #166534; /* Green 800 */
         --color-text-warning: #b45309; /* Amber 700 */
-        --color-text-info: #0F766E; /* Teal 700 */
+        --color-text-info: #0e7490; /* Cyan 700 */
         --color-text-orange: #c2410c; /* Orange 700 */
 
-        --color-bg-base: #f3f4f6; /* Gray 100 */
+        /* Background & Surface Colors */
+        --color-bg-base: #f9fafb; /* Gray 50 */
         --color-bg-surface: #ffffff;
-        --color-bg-muted: #f9fafb; /* Gray 50 */
-        --color-bg-surface-hover: #f3f4f6; /* Gray 100 */
+        --color-bg-muted: #f3f4f6; /* Gray 100 */
+        --color-bg-surface-hover: #f9fafb; /* Gray 50 */
 
+        /* Borders */
         --color-border: #e5e7eb; /* Gray 200 */
+        --color-border-hover: #d1d5db; /* Gray 300 */
         --color-border-focus: var(--color-primary);
 
+        /* Shadows & Radius */
         --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
-        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
-        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08);
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
-        --border-radius: 0.875rem; /* 14px */
-        --border-radius-sm: 0.625rem; /* 10px */
+        --border-radius: 0.75rem; /* 12px */
+        --border-radius-sm: 0.5rem; /* 8px */
+
+        /* Gradients */
+        --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+        --gradient-teal: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);
+        --gradient-amber: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+        --gradient-cyan: linear-gradient(135deg, #06B6D4 0%, #22D3EE 100%);
+        --gradient-red: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+        --gradient-green: linear-gradient(135deg, #22C55E 0%, #4ADE80 100%);
+        --gradient-purple: linear-gradient(135deg, #9333ea 0%, #a855f7 100%);
       }
       
       html.dark {
-        --color-primary: #90d85a;
-        --color-primary-hover: #82C44A;
-        --color-primary-light: #2f4b1a;
+        --color-primary: #2DD4BF; /* Teal 400 */
+        --color-primary-hover: #14B8A6; /* Teal 500 */
+        --color-primary-darker: #5eead4; /* Teal 300 */
+        --color-primary-light: #134E4A; /* Teal 900 */
         
+        --color-danger: #f87171; /* Red 400 */
+        --color-danger-hover: #ef4444; /* Red 500 */
+        --color-danger-darker: #fca5a5; /* Red 300 */
         --color-danger-light: #450a0a; /* Red 950 */
-        --color-success-light: #2a4017;
+
+        --color-success: #4ade80; /* Green 400 */
+        --color-success-hover: #22c55e; /* Green 500 */
+        --color-success-darker: #86efac; /* Green 300 */
+        --color-success-light: #14532d; /* Green 900 */
+
         --color-warning-light: #451a03; /* Amber 950 */
-        --color-info-light: #134E4A; /* Teal 900 */
+        --color-info: #22d3ee; /* Cyan 400 */
+        --color-info-hover: #06b6d4; /* Cyan 500 */
+        --color-info-light: #164e63; /* Cyan 900 */
         --color-orange-light: #4c1d03; /* Orange 950 */
 
         --color-text-base: #f9fafb; /* Gray 50 */
         --color-text-muted: #9ca3af; /* Gray 400 */
         --color-text-subtle: #6b7280; /* Gray 500 */
-        --color-text-on-primary: #ffffff;
+        --color-text-on-primary: #0f172a; /* Slate 900 */
         --color-text-danger: #f87171; /* Red 400 */
-        --color-text-success: #a5d679;
+        --color-text-success: #4ade80; /* Green 400 */
         --color-text-warning: #facc15; /* Yellow 400 */
-        --color-text-info: #2DD4BF; /* Teal 400 */
+        --color-text-info: #22d3ee; /* Cyan 400 */
         --color-text-orange: #fb923c; /* Orange 400 */
 
         --color-bg-base: #111827; /* Gray 900 */
@@ -87,11 +118,22 @@
         --color-bg-surface-hover: #374151; /* Gray 700 */
 
         --color-border: #374151; /* Gray 700 */
+        --color-border-hover: #4b5563; /* Gray 600 */
         
         --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.15);
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.2), 0 1px 2px -1px rgb(0 0 0 / 0.2);
         --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.2), 0 2px 4px -2px rgb(0 0 0 / 0.2);
         --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.25), 0 4px 6px -4px rgb(0 0 0 / 0.25);
         --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+
+        /* Gradients */
+        --gradient-primary: linear-gradient(135deg, var(--color-primary-darker) 0%, var(--color-primary) 100%);
+        --gradient-teal: linear-gradient(135deg, #14B8A6 0%, #5EEAD4 100%);
+        --gradient-amber: linear-gradient(135deg, #F59E0B 0%, #FDE047 100%);
+        --gradient-cyan: linear-gradient(135deg, #06B6D4 0%, #67E8F9 100%);
+        --gradient-red: linear-gradient(135deg, #F87171 0%, #FCA5A5 100%);
+        --gradient-green: linear-gradient(135deg, #4ADE80 0%, #86EFAC 100%);
+        --gradient-purple: linear-gradient(135deg, #a855f7 0%, #c084fc 100%);
       }
 
       html { 
@@ -106,14 +148,21 @@
       }
       body {
         background-color: var(--color-bg-base);
+        background-image: radial-gradient(circle at 1% 1%, var(--color-primary-light) 0%, transparent 20%),
+                          radial-gradient(circle at 99% 99%, color-mix(in srgb, var(--color-info) 10%, transparent) 0%, transparent 30%);
+        background-attachment: fixed;
         color: var(--color-text-base);
+      }
+      html.dark body {
+          background-image: radial-gradient(circle at 1% 1%, color-mix(in srgb, var(--color-primary) 15%, transparent) 0%, transparent 25%),
+                          radial-gradient(circle at 99% 99%, color-mix(in srgb, var(--color-info) 10%, transparent) 0%, transparent 35%);
       }
       
       .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 0.75rem 1.25rem;
+        padding: 0.625rem 1.125rem;
         border-radius: var(--border-radius-sm);
         font-weight: 500;
         font-size: 0.875rem;
@@ -121,25 +170,43 @@
         transition: all 0.2s ease-in-out;
         border: 1px solid transparent;
         cursor: pointer;
+        transform: translateY(0);
+        box-shadow: var(--shadow-sm), 0 0 #0000;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+      .btn:active {
+        transform: translateY(0px);
+        box-shadow: var(--shadow-sm), inset 0 1px 2px 0 rgba(0,0,0,0.08);
       }
       .btn:focus-visible {
-        outline: 2px solid transparent;
+        outline: 2px solid var(--color-primary);
         outline-offset: 2px;
-        box-shadow: 0 0 0 3px var(--color-primary-light);
+        box-shadow: none;
       }
       .btn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+        transform: translateY(0);
+        box-shadow: none;
+        background-color: var(--color-bg-muted);
+        background-image: none;
+        border-color: var(--color-border);
+        color: var(--color-text-muted);
       }
 
       .btn-primary {
-        background-color: var(--color-primary);
+        background-image: var(--gradient-primary);
         color: var(--color-text-on-primary);
-        box-shadow: var(--shadow-sm);
+        border-color: transparent;
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.1), inset 0 1px 1px 0 rgba(255,255,255,0.2);
       }
       .btn-primary:hover {
-        background-color: var(--color-primary-hover);
+         box-shadow: 0 4px 8px 0 rgba(0,0,0,0.1), 0 0 20px color-mix(in srgb, var(--color-primary) 20%, transparent), inset 0 1px 1px 0 rgba(255,255,255,0.2);
       }
+
       .btn-secondary {
         background-color: var(--color-bg-surface);
         color: var(--color-text-base);
@@ -147,20 +214,23 @@
         box-shadow: var(--shadow-sm);
       }
       .btn-secondary:hover {
-        background-color: var(--color-bg-surface-hover);
+        background-color: var(--color-bg-muted);
+        border-color: var(--color-border-hover);
       }
+
       .btn-danger {
         background-color: var(--color-danger);
         color: var(--color-text-on-primary);
-        box-shadow: var(--shadow-sm);
+        border-color: var(--color-danger-darker);
       }
       .btn-danger:hover {
         background-color: var(--color-danger-hover);
       }
+
        .btn-success {
         background-color: var(--color-success);
-        color: var(--color-text-on-primary);
-        box-shadow: var(--shadow-sm);
+        color: #fff;
+        border-color: var(--color-success-darker);
       }
       .btn-success:hover {
         background-color: var(--color-success-hover);
@@ -173,7 +243,7 @@
         border: 1px solid var(--color-border);
         background-color: var(--color-bg-surface);
         color: var(--color-text-base);
-        padding: 0.75rem 1rem;
+        padding: 0.625rem 0.875rem;
         font-size: 0.875rem;
         line-height: 1.25rem;
         transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
@@ -185,6 +255,9 @@
         border-color: var(--color-border-focus);
         box-shadow: 0 0 0 3px var(--color-primary-light);
         outline: none;
+      }
+      html.dark .form-input:focus, html.dark .form-select:focus {
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
       }
       
       .table-wrapper {
@@ -198,6 +271,7 @@
         font-size: 0.875rem;
         text-align: left;
         color: var(--color-text-muted);
+        border-collapse: collapse;
       }
       .custom-table thead {
         font-size: 0.75rem;
@@ -207,36 +281,38 @@
         background-color: var(--color-bg-muted);
       }
       .custom-table th, .custom-table td {
-        padding: 1rem 1.5rem;
+        padding: 0.875rem 1.25rem;
         white-space: nowrap;
       }
        .custom-table th {
         font-weight: 500;
        }
       .custom-table tbody tr {
-        border-bottom: 1px solid var(--color-border);
-      }
-      .custom-table tbody tr:nth-of-type(odd) {
         background-color: var(--color-bg-surface);
-      }
-      .custom-table tbody tr:nth-of-type(even) {
-        background-color: var(--color-bg-muted);
+        border-bottom: 1px solid var(--color-border);
       }
       .custom-table tbody tr:last-of-type {
         border-bottom: 0;
       }
+       .custom-table tbody tr:nth-of-type(even) {
+        background-color: var(--color-bg-muted);
+      }
       .custom-table tbody tr:hover {
-        background-color: var(--color-bg-surface-hover);
+        background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-surface));
+      }
+      html.dark .custom-table tbody tr:nth-of-type(even) {
+        background-color: color-mix(in srgb, var(--color-bg-surface) 50%, #000);
       }
       
       /* Badge Styles */
       .badge {
           display: inline-block;
-          padding: 0.125rem 0.625rem; /* py-0.5 px-2.5 */
-          font-size: 0.75rem; /* text-xs */
-          font-weight: 600; /* font-semibold */
-          border-radius: 9999px; /* rounded-full */
+          padding: 0.125rem 0.625rem;
+          font-size: 0.75rem;
+          font-weight: 500;
+          border-radius: 9999px;
           line-height: 1.25rem;
+          text-transform: capitalize;
       }
       .badge-warning { /* Pending */
           background-color: var(--color-warning-light);
@@ -276,12 +352,12 @@
 
       /* Animated Gradient for Sign-in page */
       .animated-gradient {
-        background: linear-gradient(-45deg, #f2f9ec, #ffffff, #e6f3d8, #ffffff);
+        background: linear-gradient(-45deg, #f0fdfa, #ffffff, #ccfbf1, #ffffff);
         background-size: 400% 400%;
         animation: gradient 15s ease infinite;
       }
       html.dark .animated-gradient {
-         background: linear-gradient(-45deg, #162410, #1f2937, #213515, #1f2937);
+         background: linear-gradient(-45deg, #0f2b28, #111827, #134e4a, #111827);
          background-size: 400% 400%;
          animation: gradient 15s ease infinite;
       }
@@ -291,6 +367,15 @@
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
       }
+
+      /* Gradient Backgrounds */
+      .bg-gradient-teal { background-image: var(--gradient-teal); }
+      .bg-gradient-amber { background-image: var(--gradient-amber); }
+      .bg-gradient-cyan { background-image: var(--gradient-cyan); }
+      .bg-gradient-red { background-image: var(--gradient-red); }
+      .bg-gradient-green { background-image: var(--gradient-green); }
+      .bg-gradient-purple { background-image: var(--gradient-purple); }
+
 
       /* Toast Notifications */
       .toast-container {

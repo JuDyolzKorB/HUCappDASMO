@@ -25,9 +25,9 @@ const HealthCenterDashboard: React.FC<HealthCenterDashboardProps> = ({ requisiti
                 <p className="text-sm text-[var(--color-text-muted)]">Manage your medical supply requisitions.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <DashboardCard title="My Pending Requisitions" value={pendingCount.toString()} icon={<RequisitionsIcon className="w-8 h-8"/>} color="bg-[var(--color-warning)]" />
-                <DashboardCard title="My Approved Requisitions" value={approvedCount.toString()} icon={<FileHeartIcon className="w-8 h-8"/>} color="bg-[var(--color-success)]" />
-                <DashboardCard title="My Rejected Requisitions" value={rejectedCount.toString()} icon={<FileHeartIcon className="w-8 h-8"/>} color="bg-[var(--color-danger)]" />
+                <DashboardCard title="My Pending Requisitions" value={pendingCount.toString()} icon={<RequisitionsIcon className="w-8 h-8"/>} color="bg-gradient-amber" />
+                <DashboardCard title="My Approved Requisitions" value={approvedCount.toString()} icon={<FileHeartIcon className="w-8 h-8"/>} color="bg-gradient-green" />
+                <DashboardCard title="My Rejected Requisitions" value={rejectedCount.toString()} icon={<FileHeartIcon className="w-8 h-8"/>} color="bg-gradient-red" />
             </div>
 
             <div className="bg-[var(--color-bg-surface)] p-6 rounded-xl shadow-md">
