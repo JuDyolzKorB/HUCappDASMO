@@ -1,0 +1,16 @@
+[
+    {
+        "IssuanceID": "ISS-20260129-2689",
+        "RequisitionID": "R00001",
+        "DateIssued": "2026-01-29 03:32:07",
+        "IssuedByUserID": "U009",
+        "IssuedItems": []
+    },
+    {
+        "IssuanceID": "ISS-20260129-8270",
+        "RequisitionID": "R00002",
+        "DateIssued": "2026-01-29 04:39:31",
+        "IssuedByUserID": "U009",
+        "IssuedItems": []
+    }
+]

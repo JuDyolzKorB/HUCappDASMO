@@ -1,0 +1,14 @@
+[
+    {
+        "SupplierID": "S01",
+        "Name": "MedSupply Inc.",
+        "Address": "123 Pharma Lane",
+        "ContactInfo": "555-1234"
+    },
+    {
+        "SupplierID": "S02",
+        "Name": "Global Health Distributors",
+        "Address": "456 Wellness Ave",
+        "ContactInfo": "555-5678"
+    }
+]

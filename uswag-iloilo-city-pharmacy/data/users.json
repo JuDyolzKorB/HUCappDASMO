@@ -1,0 +1,83 @@
+[
+    {
+        "UserID": "U001",
+        "Username": "admin",
+        "FirstName": "Admin",
+        "LastName": "User",
+        "Role": "Administrator",
+        "Password": "password"
+    },
+    {
+        "UserID": "U002",
+        "Username": "hstaff1",
+        "FirstName": "Health",
+        "LastName": "Staff",
+        "Role": "Health Center Staff",
+        "Password": "password"
+    },
+    {
+        "UserID": "U003",
+        "Username": "hstaff2",
+        "FirstName": "Center",
+        "LastName": "User",
+        "Role": "Health Center Staff",
+        "Password": "password"
+    },
+    {
+        "UserID": "U004",
+        "Username": "hpharm",
+        "FirstName": "Head",
+        "LastName": "Pharmacist",
+        "Role": "Head Pharmacist",
+        "Password": "password"
+    },
+    {
+        "UserID": "U006",
+        "Username": "wstaff",
+        "FirstName": "Warehouse",
+        "LastName": "Staff",
+        "Role": "Warehouse Staff",
+        "Password": "password"
+    },
+    {
+        "UserID": "U009",
+        "Username": "frank",
+        "FirstName": "Tim Jason",
+        "LastName": "Gonzales",
+        "Role": "Accounting Office User",
+        "Password": "password"
+    },
+    {
+        "UserID": "U010",
+        "Username": "grace",
+        "FirstName": "Grace",
+        "LastName": "Silver",
+        "Role": "CMO\/GSO\/COA User",
+        "Password": "password"
+    },
+    {
+        "UserID": "U008",
+        "Username": "tjgonzales",
+        "Password": "ghgh",
+        "FirstName": "Tim Jason",
+        "LastName": "Gonzales",
+        "Role": "Administrator"
+    },
+    {
+        "UserID": "U009",
+        "Username": "ggggg",
+        "Password": "ghgh",
+        "FirstName": "Tim Jason",
+        "LastName": "Gonzales",
+        "Role": "Administrator"
+    },
+    {
+        "UserID": "U010",
+        "Username": "gggggg",
+        "Password": "$2y$10$btuMg4SZRcDl1\/M.QcsEO.PziMvj4n5gmiHREPnHlvR94qd.Ckb.S",
+        "FirstName": "chinno",
+        "MiddleName": "s",
+        "LastName": "ssss",
+        "Role": "Warehouse Staff"
+    }
+]

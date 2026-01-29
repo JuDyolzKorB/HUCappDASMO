@@ -1,0 +1,74 @@
+[
+    {
+        "AuditLogID": "AUD-1769675365-8e0fc",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Received Items",
+        "ReferenceType": "Purchase Order",
+        "ReferenceID": "PO001",
+        "ActionDate": "2026-01-29T09:29:25+01:00"
+    },
+    {
+        "AuditLogID": "AUD-1769674865-0ba89",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Created Purchase Order",
+        "ReferenceType": "Purchase Order",
+        "ReferenceID": "PO004",
+        "ActionDate": "2026-01-29T09:21:05+01:00"
+    },
+    {
+        "AuditLogID": "AUD-1769673168-61092",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Approved Purchase Order",
+        "ReferenceType": "Purchase Order",
+        "ReferenceID": "PO002",
+        "ActionDate": "2026-01-29T08:52:48+01:00"
+    },
+    {
+        "AuditLogID": "AUD-1769667749-543e4",
+        "UserID": "U009",
+        "UserFullName": "Tim Jason Gonzales",
+        "ActionType": "Updated Profile",
+        "ReferenceType": "User",
+        "ReferenceID": "U009",
+        "ActionDate": "2026-01-29T07:22:29+01:00"
+    },
+    {
+        "AuditLogID": "AUD-1769667732-b5e96",
+        "UserID": "U009",
+        "UserFullName": "Tim Jason Gonzales",
+        "ActionType": "Updated Profile",
+        "ReferenceType": "User",
+        "ReferenceID": "U009",
+        "ActionDate": "2026-01-29T07:22:12+01:00"
+    },
+    {
+        "AuditLogID": "AUD-1769664721-a1b2c",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Created Requisition",
+        "ReferenceType": "Requisition",
+        "ReferenceID": "REQ-20260129-1234",
+        "ActionDate": "2026-01-29T14:12:01+08:00"
+    },
+    {
+        "AuditLogID": "AUD-1769664710-d3e4f",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Approved Requisition",
+        "ReferenceType": "Requisition",
+        "ReferenceID": "REQ-20260129-1234",
+        "ActionDate": "2026-01-29T14:10:45+08:00"
+    },
+    {
+        "AuditLogID": "AUD-1769664700-g5h6i",
+        "UserID": "U001",
+        "UserFullName": "Admin User",
+        "ActionType": "Received Items",
+        "ReferenceType": "Purchase Order",
+        "ReferenceID": "PO-20260129-999",
+        "ActionDate": "2026-01-29T14:05:22+08:00"
+    }
+]
