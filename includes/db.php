@@ -280,11 +280,16 @@ function save_data($file, $data) {
     switch($file) {
         case 'users':
             // Handle user updates
+            $success = true;
             foreach ($data as $user) {
+                // Determine if updating or inserting
+                // Using fetchOne requires the UserID to be of correct type/value
                 $existing = $db->fetchOne("SELECT UserID FROM Users WHERE UserID = ?", [$user['UserID']]);
+                
+                $result = false;
                 if ($existing) {
                     // Update
-                    $db->execute(
+                    $result = $db->execute(
                         "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, Username = ?, Password = ? WHERE UserID = ?",
                         [
                             $user['FirstName'] ?? $user['FName'],
@@ -298,7 +303,7 @@ function save_data($file, $data) {
                     );
                 } else {
                     // Insert
-                    $db->execute(
+                    $result = $db->execute(
                         "INSERT INTO Users (UserID, FName, MName, LName, Role, Username, Password) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         [
                             $user['UserID'],
@@ -311,8 +316,13 @@ function save_data($file, $data) {
                         ]
                     );
                 }
+                
+                if (!$result) {
+                    $success = false;
+                    error_log("Failed to save user " . $user['UserID']);
+                }
             }
-            return true;
+            return $success;
             
         case 'warehouses':
             foreach ($data as $wh) {
@@ -572,7 +582,7 @@ function logTransaction($actionType, $referenceType, $referenceId) {
          VALUES (?, ?, ?, ?, ?)",
         [
             $logId,
-            $user['UserID'],
+            $user['UserID'] ?? '0',
             $referenceType,
             $actionType,
             date('Y-m-d H:i:s')

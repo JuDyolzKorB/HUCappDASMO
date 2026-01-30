@@ -29,6 +29,12 @@ try {
         }
 
         if ($user) {
+            // Normalize keys for the application
+            $user['FirstName'] = $user['FirstName'] ?? $user['FName'] ?? '';
+            $user['MiddleName'] = $user['MiddleName'] ?? $user['MName'] ?? '';
+            $user['LastName'] = $user['LastName'] ?? $user['LName'] ?? '';
+            $user['Role'] = $user['Role'] ?? 'User'; // Ensure Role is set
+            
             $_SESSION['user'] = $user;
             log_security_event($user['UserID'], 'Login', 'Success', "User logged in as {$user['Role']}");
             echo json_encode(['success' => true, 'redirect' => 'index.php?page=dashboard']);
@@ -58,8 +64,9 @@ try {
             exit;
         }
 
-        // Generate ID (using timestamp + random to avoid fetching all users just for count)
-        $newUserId = 'U' . date('ymd') . rand(100, 999);
+        // Generate ID (Simple increment)
+        $count = $db->fetchOne("SELECT COUNT(*) as c FROM Users");
+        $newUserId = (int)($count['c'] ?? 0) + 1;
 
         // Create new user with HASHED password
         $newUser = [
@@ -84,9 +91,9 @@ try {
         
         $newWarehouse = [
             'WarehouseID' => 'W' . str_pad(count($warehouses) + 1, 2, '0', STR_PAD_LEFT),
-            'WarehouseName' => $_POST['warehouseName'],
-            'Location' => $_POST['location'],
-            'WarehouseType' => $_POST['warehouseType']
+            'WarehouseName' => $_POST['warehouseName'] ?? '',
+            'Location' => $_POST['location'] ?? '',
+            'WarehouseType' => $_POST['warehouseType'] ?? ''
         ];
         
         $warehouses[] = $newWarehouse;
@@ -98,8 +105,8 @@ try {
             echo json_encode(['success' => false, 'message' => 'Failed to save warehouse']);
         }
     } elseif ($action === 'process_issuance') {
-        $reqId = $_POST['requisitionId'];
-        $allocationPlan = json_decode($_POST['allocationPlan'], true);
+        $reqId = $_POST['requisitionId'] ?? '';
+        $allocationPlan = json_decode($_POST['allocationPlan'] ?? '[]', true);
         
         if (!$allocationPlan) {
             echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
@@ -168,8 +175,8 @@ try {
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'receive_items') {
-        $poid = $_POST['poid'] ?? $_POST['poId']; // Handle both for robustness
-        $items = $_POST['items']; 
+        $poid = $_POST['poid'] ?? $_POST['poId'] ?? ''; // Handle both for robustness
+        $items = $_POST['items'] ?? []; 
         
         $inventory = get_data('inventory');
         $purchaseOrders = get_data('purchase_orders');
@@ -223,8 +230,8 @@ try {
         }
 
     } elseif ($action === 'create_requisition') {
-        $healthCenterId = $_POST['healthCenterId'];
-        $items = $_POST['items']; // Array of items
+        $healthCenterId = $_POST['healthCenterId'] ?? '';
+        $items = $_POST['items'] ?? []; // Array of items
         
         // Lookup Health Center Name for denormalization (optional, but good for display)
         $healthCenters = get_data('health_centers');
@@ -279,8 +286,8 @@ try {
              echo json_encode(['success' => false, 'message' => 'Failed to save requisition']);
         }
     } elseif ($action === 'update_requisition_status') {
-        $reqId = $_POST['requisitionId'];
-        $status = $_POST['status']; // Approved or Rejected
+        $reqId = $_POST['requisitionId'] ?? '';
+        $status = $_POST['status'] ?? ''; // Approved or Rejected
         
         $requisitions = get_data('requisitions');
         $updated = false;
@@ -315,8 +322,8 @@ try {
             echo json_encode(['success' => false, 'message' => 'Requisition not found']);
         }
     } elseif ($action === 'update_po_status') {
-        $poId = $_POST['poId'];
-        $status = $_POST['status']; 
+        $poId = $_POST['poId'] ?? '';
+        $status = $_POST['status'] ?? ''; 
         
         $purchaseOrders = get_data('purchase_orders');
         $updated = false;
@@ -346,6 +353,7 @@ try {
         }
         
         $firstName = $_POST['firstName'] ?? '';
+        $middleName = $_POST['middleName'] ?? '';
         $lastName = $_POST['lastName'] ?? '';
         $currUser = $_SESSION['user'];
         
@@ -353,8 +361,9 @@ try {
         $updated = false;
         
         foreach ($users as &$u) {
-            if ($u['UserID'] === $currUser['UserID']) {
+            if ($u['UserID'] == $currUser['UserID']) {
                 $u['FirstName'] = $firstName;
+                $u['MiddleName'] = $middleName;
                 $u['LastName'] = $lastName;
                 // Update session
                 $_SESSION['user'] = $u;
@@ -387,7 +396,7 @@ try {
         $updated = false;
         
         foreach ($users as &$u) {
-            if ($u['UserID'] === $currUser['UserID']) {
+            if ($u['UserID'] == $currUser['UserID']) {
                 // Verify current password
                 if (!password_verify($currentPassword, $u['Password']) && $u['Password'] !== $currentPassword) {
                     echo json_encode(['success' => false, 'message' => 'Incorrect current password']);
@@ -407,10 +416,23 @@ try {
                 logTransaction('Changed Password', 'User', $currUser['UserID']);
                 echo json_encode(['success' => true]);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to save user data']);
+                // Return detailed debug info
+                $debug = [
+                    'user_id' => $currUser['UserID'],
+                    'db_error_check_logs' => 'Check PHP error log for "Execute Error"'
+                ];
+                dump_debug_info();
+                echo json_encode(['success' => false, 'message' => 'Database save failed. Debug: ' . json_encode($debug)]);
             }
         } else {
-            echo json_encode(['success' => false, 'message' => 'User not found']);
+            // Debug info for "User not found"
+             $debug = [
+                'session_user_id' => $currUser['UserID'],
+                'session_user_id_type' => gettype($currUser['UserID']),
+                'users_count' => count($users)
+            ];
+            dump_debug_info();
+            echo json_encode(['success' => false, 'message' => 'User not found in user list. Debug: ' . json_encode($debug)]);
         }
     } elseif ($action === 'create_purchase_order') {
         // Validate user is logged in
@@ -525,7 +547,7 @@ try {
             echo json_encode(['success' => false, 'message' => 'Failed to save purchase order']);
         }
     } elseif ($action === 'save_report') {
-        $report = json_decode($_POST['report'], true);
+        $report = json_decode($_POST['report'] ?? '{}', true);
         if ($report) {
             $reports = get_data('reports');
             array_unshift($reports, $report);
@@ -540,4 +562,23 @@ try {
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Server Error: ' . $e->getMessage()]);
+}
+
+function dump_debug_info() {
+    global $db;
+    try {
+        $users = $db->fetchAll("SELECT * FROM Users");
+        $out = "Date: " . date('Y-m-d H:i:s') . "\n";
+        $out .= "Session User: " . print_r($_SESSION['user'] ?? 'No Session', true) . "\n\n";
+        $out .= "DB Users:\n";
+        foreach ($users as $u) {
+             $out .= "ID: " . $u['UserID'] . " (" . gettype($u['UserID']) . ")\n";
+             $out .= "User: " . $u['Username'] . "\n";
+             $out .= "PassHash: " . substr($u['Password'] ?? '', 0, 15) . "...\n";
+             $out .= "------------------\n";
+        }
+        file_put_contents(__DIR__ . '/debug_dump.txt', $out);
+    } catch (Exception $e) {
+        file_put_contents(__DIR__ . '/debug_dump.txt', "Error dumping debug info: " . $e->getMessage());
+    }
 }

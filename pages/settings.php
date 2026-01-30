@@ -29,7 +29,42 @@ if (!empty($transaction_logs)) {
 }
 ?>
 
-<div class="space-y-8 animate-fade-in" x-data="{ activeTab: 'profile' }">
+<div class="space-y-8 animate-fade-in" 
+     x-data="{ 
+        activeTab: 'profile',
+        showNotification: false,
+        notificationMsg: '',
+        notificationType: 'success',
+        notify(msg, type = 'success') {
+            this.notificationMsg = msg;
+            this.notificationType = type;
+            this.showNotification = true;
+            setTimeout(() => this.showNotification = false, 3000);
+        }
+     }"
+     @notify.window="notify($event.detail.msg, $event.detail.type)"
+>
+    <!-- Notification Toast -->
+    <div x-show="showNotification" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2 scale-90"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-2 scale-90"
+         class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border"
+         :class="notificationType === 'success' ? 'bg-white text-teal-600 border-teal-100' : 'bg-red-50 text-red-600 border-red-100'">
+        <div class="flex-shrink-0">
+            <template x-if="notificationType === 'success'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </template>
+            <template x-if="notificationType === 'error'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </template>
+        </div>
+        <p class="font-bold text-sm" x-text="notificationMsg"></p>
+    </div>
+
     <!-- Consolidated Header: Title -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
@@ -87,24 +122,28 @@ if (!empty($transaction_logs)) {
                     <p class="text-sm text-slate-500 font-medium">This information will be displayed internally to other users.</p>
                 </div>
                 
-                <form id="profileForm" class="p-8 pb-0">
+                <form id="profileForm" class="p-8 pb-0" @submit.prevent="submitSettingsForm($el, 'Profile updated successfully!')">
                     <input type="hidden" name="action" value="update_profile">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">First Name</label>
-                            <input type="text" name="firstName" value="<?php echo $user['FirstName']; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                            <input type="text" name="firstName" value="<?php echo $user['FirstName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Middle Name</label>
+                            <input type="text" name="middleName" value="<?php echo $user['MiddleName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Last Name</label>
-                            <input type="text" name="lastName" value="<?php echo $user['LastName']; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                            <input type="text" name="lastName" value="<?php echo $user['LastName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
-                            <input type="text" disabled value="<?php echo $user['Username']; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
+                            <input type="text" disabled value="<?php echo $user['Username'] ?? ''; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Role</label>
-                            <input type="text" disabled value="<?php echo $user['Role']; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
+                            <input type="text" disabled value="<?php echo $user['Role'] ?? 'User'; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
                         </div>
                     </div>
                 
@@ -116,25 +155,15 @@ if (!empty($transaction_logs)) {
         </div>
 
         <script>
-        // Profile Form Handler
-        document.getElementById('profileForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            submitSettingsForm(this, 'Profile updated successfully!');
-        });
-
-        // Security Form Handler
-        const securityForm = document.getElementById('securityForm');
-        if (securityForm) {
-            securityForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const pass1 = this.querySelector('[name="newPassword"]').value;
-                const pass2 = this.querySelector('[name="confirmPassword"]').value;
-                if (pass1 !== pass2) {
-                    alert('New passwords do not match!');
-                    return;
-                }
-                submitSettingsForm(this, 'Password updated successfully!');
-            });
+        // Security Handler Wrapper
+        function handleSecuritySubmit(form) {
+             const pass1 = form.querySelector('[name="newPassword"]').value;
+             const pass2 = form.querySelector('[name="confirmPassword"]').value;
+             if (pass1 !== pass2) {
+                 window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'New passwords do not match!', type: 'error' } }));
+                 return;
+             }
+             submitSettingsForm(form, 'Password updated successfully!');
         }
 
         // Universal Submission Function
@@ -152,15 +181,18 @@ if (!empty($transaction_logs)) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert(successMsg);
-                    location.reload();
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { msg: successMsg, type: 'success' } }));
+                     // Clear password fields if success
+                    if (form.querySelector('input[type="password"]')) {
+                        form.reset();
+                    }
                 } else {
-                    alert(data.message || 'Error updating settings');
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { msg: data.message || 'Error updating settings', type: 'error' } }));
                 }
             })
             .catch(err => {
                 console.error(err);
-                alert('An error occurred.');
+                window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'An error occurred during submission.', type: 'error' } }));
             })
             .finally(() => {
                 btn.disabled = false;
@@ -168,22 +200,70 @@ if (!empty($transaction_logs)) {
             });
         }
 
-        // Appearance Handler (matches index.php logic)
+        // Appearance Handler
         function setTheme(theme) {
             if (theme === 'system') {
                 localStorage.removeItem('color-theme');
             } else {
                 localStorage.setItem('color-theme', theme);
             }
-            // Trigger the same logic in index.php
             if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             } else {
                 document.documentElement.classList.remove('dark');
             }
-            alert('Appearance preference saved!');
+            window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'Appearance preference saved!', type: 'success' } }));
         }
         </script>
+        <!-- End Scripts -->
+
+        <!-- Appearance Tab -->
+        <!-- ... (Appearance tab content omitted for brevity as it is unchanged, but ensuring validity of file structure) ... --> 
+
+        <!-- Security Tab -->
+        <div x-show="activeTab === 'security'" x-cloak class="animate-fade-in space-y-6" x-data="{ showCurr: false, showNew: false, showConfirm: false }">
+            <div class="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Security Settings</h3>
+                <p class="text-sm text-slate-500 mb-8 font-medium">Update your password and manage account security.</p>
+                
+                <form id="securityForm" class="space-y-6 max-w-lg" @submit.prevent="handleSecuritySubmit($el)">
+                    <input type="hidden" name="action" value="update_password">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Current Password</label>
+                        <div class="relative">
+                            <input :type="showCurr ? 'text' : 'password'" name="currentPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
+                            <button type="button" @click="showCurr = !showCurr" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                                <svg x-show="!showCurr" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                <svg x-show="showCurr" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">New Password</label>
+                        <div class="relative">
+                            <input :type="showNew ? 'text' : 'password'" name="newPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
+                            <button type="button" @click="showNew = !showNew" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                                <svg x-show="!showNew" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                <svg x-show="showNew" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Confirm New Password</label>
+                        <div class="relative">
+                            <input :type="showConfirm ? 'text' : 'password'" name="confirmPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
+                            <button type="button" @click="showConfirm = !showConfirm" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                                <svg x-show="!showConfirm" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                                <svg x-show="showConfirm" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex justify-end pt-4">
+                        <button type="submit" class="btn btn-primary px-8 py-3 rounded-xl font-bold">Update Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- Activity Tab -->
         <div x-show="activeTab === 'activity'" x-cloak class="animate-fade-in space-y-6" x-data="{ activitySubTab: 'security' }">
@@ -234,8 +314,8 @@ if (!empty($transaction_logs)) {
                                     <tr class="hover:bg-slate-50/10 dark:hover:bg-slate-700/10 transition-colors">
                                         <td class="px-6 py-5 text-sm font-bold text-slate-700 dark:text-white"><?php echo $logUser; ?></td>
                                         <td class="px-6 py-5 text-sm font-medium text-slate-500 dark:text-slate-400"><?php echo $log['ActionType']; ?></td>
-                                        <td class="px-6 py-5 text-sm text-slate-400 dark:text-slate-500"><?php echo $log['Description']; ?></td>
-                                        <td class="px-6 py-5 text-sm font-mono text-slate-400"><?php echo $log['IPAddress']; ?></td>
+                                        <td class="px-6 py-5 text-sm text-slate-400 dark:text-slate-500"><?php echo $log['Description'] ?? 'No description'; ?></td>
+                                        <td class="px-6 py-5 text-sm font-mono text-slate-400"><?php echo $log['IPAddress'] ?? 'Unknown IP'; ?></td>
                                         <td class="px-6 py-5 text-sm font-medium text-slate-400"><?php echo date('n/j/Y, g:i:s A', strtotime($log['ActionDate'])); ?></td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -270,10 +350,10 @@ if (!empty($transaction_logs)) {
                                 <?php else: ?>
                                     <?php foreach (array_slice($transaction_logs, 0, 15) as $log): ?>
                                     <tr class="hover:bg-slate-50/10 dark:hover:bg-slate-700/10 transition-colors">
-                                        <td class="px-6 py-5 text-sm font-bold text-slate-700 dark:text-white"><?php echo $log['UserFullName']; ?></td>
+                                        <td class="px-6 py-5 text-sm font-bold text-slate-700 dark:text-white"><?php echo $log['UserFullName'] ?? getLogUserName($log['UserID'] ?? 'unknown', $users); ?></td>
                                         <td class="px-6 py-5 text-sm font-medium text-slate-500 dark:text-slate-400"><?php echo $log['ActionType']; ?></td>
-                                        <td class="px-6 py-5 text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest"><?php echo $log['ReferenceType']; ?></td>
-                                        <td class="px-6 py-5 text-sm font-mono text-primary/70 font-bold"><?php echo $log['ReferenceID']; ?></td>
+                                        <td class="px-6 py-5 text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest"><?php echo $log['ReferenceType'] ?? 'N/A'; ?></td>
+                                        <td class="px-6 py-5 text-sm font-mono text-primary/70 font-bold"><?php echo $log['ReferenceID'] ?? 'N/A'; ?></td>
                                         <td class="px-6 py-5 text-sm font-medium text-slate-400"><?php echo date('n/j/Y, g:i:s A', strtotime($log['ActionDate'])); ?></td>
                                     </tr>
                                     <?php endforeach; ?>

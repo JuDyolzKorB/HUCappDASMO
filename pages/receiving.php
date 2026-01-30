@@ -70,7 +70,7 @@ $tab = $_GET['tab'] ?? 'awaiting';
                             <?php foreach ($posToReceive as $po): ?>
                             <tr>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $po['PONumber']; ?></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['SupplierName']; ?></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['SupplierName'] ?? 'Unknown Supplier'; ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($po['PODate'])); ?></td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">

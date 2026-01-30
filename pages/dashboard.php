@@ -59,7 +59,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
             <div class="relative overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-2xl">
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div>
-                        <h2 class="text-3xl font-extrabold font-display tracking-tight mb-2">Welcome Back, <?php echo $user['FirstName']; ?>! 👋</h2>
+                        <h2 class="text-3xl font-extrabold font-display tracking-tight mb-2">Welcome Back, <?php echo $_SESSION['user']['FirstName'] ?? 'User'; ?>! 👋</h2>
                         <p class="text-slate-400 font-medium max-w-lg">Manage your pharmacy operations with ease. Here's what's happening today in the <span class="text-teal-400 font-bold"><?php echo $role; ?></span> dashboard.</p>
                     </div>
                     <div class="flex items-center gap-3">
@@ -145,11 +145,11 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                                 <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm">
                                     <div class="flex items-center gap-2">
                                         <div class="w-2 h-2 rounded-full bg-teal-500"></div>
-                                        <?php echo $r['RequisitionNumber']; ?>
+                                        <?php echo $r['RequisitionNumber'] ?? 'REQ-Unknown'; ?>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $r['HealthCenterName']; ?></td>
-                                <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($r['RequestedDate'])); ?></td>
+                                <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($r['RequestedDate'] ?? $r['RequestDate'] ?? 'now')); ?></td>
                                 <td class="px-6 py-4">
                                     <?php 
                                         $statusClass = 'status-pending';

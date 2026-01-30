@@ -1,6 +1,6 @@
 <?php
 $currentPage = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
-$userRole = $_SESSION['user']['Role'];
+$userRole = $_SESSION['user']['Role'] ?? 'Health Center User';
 
 $menuItems = [
     ['label' => 'Dashboard', 'id' => 'dashboard', 'icon' => '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>', 'roles' => ['Administrator', 'Health Center Staff', 'Head Pharmacist', 'Accounting Office User', 'Warehouse Staff', 'CMO/GSO/COA User']],
@@ -42,11 +42,11 @@ $menuItems = [
     <div class="p-4 border-t border-slate-800 bg-slate-900/50 backdrop-blur-md space-y-4">
         <div class="flex items-center p-2 rounded-xl bg-slate-800/30 border border-slate-700/50">
             <div class="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold text-xs border border-teal-500/30">
-                <?php echo substr($_SESSION['user']['FirstName'], 0, 1) . substr($_SESSION['user']['LastName'], 0, 1); ?>
+                <?php echo substr($_SESSION['user']['FirstName'] ?? 'U', 0, 1) . substr($_SESSION['user']['LastName'] ?? '', 0, 1); ?>
             </div>
             <div class="ml-3 overflow-hidden">
                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1">Authenticated</p>
-                <p class="text-xs font-semibold text-slate-200 truncate"><?php echo $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName']; ?></p>
+                <p class="text-xs font-semibold text-slate-200 truncate"><?php echo ($_SESSION['user']['FirstName'] ?? 'User') . ' ' . ($_SESSION['user']['LastName'] ?? ''); ?></p>
             </div>
         </div>
 
