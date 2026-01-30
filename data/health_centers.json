@@ -1,17 +1,1 @@
-[
-    {
-        "HealthCenterID": "HC01",
-        "Name": "Central Health Unit",
-        "Address": "123 Health St, Central City"
-    },
-    {
-        "HealthCenterID": "HC02",
-        "Name": "North District Clinic",
-        "Address": "456 North Ave, Northtown"
-    },
-    {
-        "HealthCenterID": "HC03",
-        "Name": "Southside Medical Center",
-        "Address": "789 South Blvd, Southville"
-    }
-]
+[]

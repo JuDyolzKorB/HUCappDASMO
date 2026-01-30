@@ -14,29 +14,23 @@ try {
     if ($action === 'login') {
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
-        $role = $_POST['role'] ?? '';
 
-        $users = get_data('users');
-        $user = null;
+        global $db; // Ensure we have access to the DB instance
+        // Use direct DB lookup instead of fetching all users
+        $user = $db->find('users', 'Username', $username);
 
-        foreach ($users as $u) {
-            // Check for username, hashed password (or plain text fallback), AND Role
-            if ($u['Username'] === $username) {
-                if (password_verify($password, $u['Password']) || $u['Password'] === $password) {
-                    if ($u['Role'] === $role) {
-                        $user = $u;
-                    } else {
-                        echo json_encode(['success' => false, 'message' => "Access denied for role: $role"]);
-                        exit;
-                    }
-                    break;
-                }
+        if ($user) {
+            // Verify password
+            if (password_verify($password, $user['Password']) || $user['Password'] === $password) {
+                // Success - $user is already set
+            } else {
+                $user = null; // Invalid password
             }
         }
 
         if ($user) {
             $_SESSION['user'] = $user;
-            log_security_event($user['UserID'], 'Login', 'Success', "User logged in as $role");
+            log_security_event($user['UserID'], 'Login', 'Success', "User logged in as {$user['Role']}");
             echo json_encode(['success' => true, 'redirect' => 'index.php?page=dashboard']);
         } else {
             // Log failed attempt
@@ -57,19 +51,19 @@ try {
         $lastName = $_POST['lastName'] ?? '';
         $role = $_POST['role'] ?? 'Health Center User';
 
-        $users = get_data('users');
-        
-        // Check if username exists
-        foreach ($users as $u) {
-            if ($u['Username'] === $username) {
-                echo json_encode(['success' => false, 'message' => 'Username already exists']);
-                exit;
-            }
+        global $db;
+        // Check if username exists using direct DB lookup
+        if ($db->find('users', 'Username', $username)) {
+            echo json_encode(['success' => false, 'message' => 'Username already exists']);
+            exit;
         }
+
+        // Generate ID (using timestamp + random to avoid fetching all users just for count)
+        $newUserId = 'U' . date('ymd') . rand(100, 999);
 
         // Create new user with HASHED password
         $newUser = [
-            'UserID' => 'U' . str_pad(count($users) + 1, 3, '0', STR_PAD_LEFT),
+            'UserID' => $newUserId,
             'Username' => $username,
             'Password' => password_hash($password, PASSWORD_DEFAULT),
             'FirstName' => $firstName,
@@ -77,10 +71,9 @@ try {
             'LastName' => $lastName,
             'Role' => $role
         ];
-
-        $users[] = $newUser;
         
-        if (save_data('users', $users)) {
+        // Use save_data which handles the INSERT
+        if (save_data('users', [$newUser])) {
              log_security_event($newUser['UserID'], 'Signup', 'Success', 'New user registered');
              echo json_encode(['success' => true, 'redirect' => 'index.php?page=login']);
         } else {

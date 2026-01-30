@@ -1,6 +1,6 @@
 <?php
 // pages/login.php
-$all_users = get_data('users');
+// No preload needed for real authentication flow
 ?>
 <div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="loginFlow()">
     <div class="auth-card animate-premium-in">
@@ -34,23 +34,8 @@ $all_users = get_data('users');
 
             <form class="space-y-4" @submit.prevent="handleLogin">
                 <div>
-                    <label for="role" class="block text-sm font-medium text-slate-600 mb-1.5">Role (for simulation)</label>
-                    <select id="role" name="role" x-model="selectedRole" @change="updateUserlist" required class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
-                        <option value="">Select a role...</option>
-                        <template x-for="role in roles" :key="role">
-                            <option :value="role" x-text="role"></option>
-                        </template>
-                    </select>
-                </div>
-
-                <div>
-                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1.5">Username (Predefined)</label>
-                    <select id="username" name="username" x-model="selectedUser" :disabled="!selectedRole || filteredUsers.length === 0" :readonly="filteredUsers.length === 1" required class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
-                        <option value="">Select user...</option>
-                        <template x-for="user in filteredUsers" :key="user.Username">
-                            <option :value="user.Username" x-text="`${user.FirstName} ${user.LastName} (${user.Username})`"></option>
-                        </template>
-                    </select>
+                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1.5">Username</label>
+                    <input id="username" name="username" type="text" x-model="username" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="Enter your username">
                 </div>
 
                 <div>
@@ -67,7 +52,7 @@ $all_users = get_data('users');
                             </svg>
                         </button>
                     </div>
-                    <p class="mt-1.5 text-[10px] text-slate-400">Hardcoded to <span class="text-slate-800 font-bold">'password'</span> for simulation</p>
+
                 </div>
 
                 <div x-show="message" x-transition class="p-2 text-xs text-center border font-semibold rounded-lg" :class="messageType === 'error' ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-600 bg-green-50 border-green-200'" x-text="message"></div>
@@ -93,31 +78,12 @@ $all_users = get_data('users');
 <script>
 function loginFlow() {
     return {
-        allUsers: <?= json_encode($all_users) ?>,
-        roles: [],
-        filteredUsers: [],
-        selectedRole: '',
-        selectedUser: '',
-        password: 'password',
+        username: '',
+        password: '',
         passwordVisible: false,
         loading: false,
         message: '',
         messageType: '',
-        
-        init() {
-            const uniqueRoles = [...new Set(this.allUsers.map(u => u.Role))];
-            this.roles = uniqueRoles.sort();
-        },
-        
-        updateUserlist() {
-            if (!this.selectedRole) {
-                this.filteredUsers = [];
-                this.selectedUser = '';
-                return;
-            }
-            this.filteredUsers = this.allUsers.filter(u => u.Role === this.selectedRole);
-            this.selectedUser = this.filteredUsers.length > 0 ? this.filteredUsers[0].Username : '';
-        },
         
         async handleLogin() {
             this.loading = true;
@@ -125,8 +91,7 @@ function loginFlow() {
             
             const formData = new FormData();
             formData.append('action', 'login');
-            formData.append('role', this.selectedRole);
-            formData.append('username', this.selectedUser);
+            formData.append('username', this.username);
             formData.append('password', this.password);
             
             try {
