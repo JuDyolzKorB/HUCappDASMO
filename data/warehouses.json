@@ -1,0 +1,20 @@
+[
+    {
+        "WarehouseID": "W01",
+        "WarehouseName": "Main Warehouse",
+        "Location": "Central City",
+        "WarehouseType": "Central"
+    },
+    {
+        "WarehouseID": "W02",
+        "WarehouseName": "North District Storage",
+        "Location": "North District",
+        "WarehouseType": "Satellite"
+    },
+    {
+        "WarehouseID": "W03",
+        "WarehouseName": "sds",
+        "Location": "sdsd",
+        "WarehouseType": "Other"
+    }
+]
