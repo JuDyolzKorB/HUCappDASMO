@@ -29,7 +29,42 @@ if (!empty($transaction_logs)) {
 }
 ?>
 
-<div class="space-y-8 animate-fade-in" x-data="{ activeTab: 'profile' }">
+<div class="space-y-8 animate-fade-in" 
+     x-data="{ 
+        activeTab: 'profile',
+        showNotification: false,
+        notificationMsg: '',
+        notificationType: 'success',
+        notify(msg, type = 'success') {
+            this.notificationMsg = msg;
+            this.notificationType = type;
+            this.showNotification = true;
+            setTimeout(() => this.showNotification = false, 3000);
+        }
+     }"
+     @notify.window="notify($event.detail.msg, $event.detail.type)"
+>
+    <!-- Notification Toast -->
+    <div x-show="showNotification" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2 scale-90"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-2 scale-90"
+         class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border"
+         :class="notificationType === 'success' ? 'bg-white text-teal-600 border-teal-100' : 'bg-red-50 text-red-600 border-red-100'">
+        <div class="flex-shrink-0">
+            <template x-if="notificationType === 'success'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </template>
+            <template x-if="notificationType === 'error'">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </template>
+        </div>
+        <p class="font-bold text-sm" x-text="notificationMsg"></p>
+    </div>
+
     <!-- Consolidated Header: Title -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
@@ -89,22 +124,26 @@ if (!empty($transaction_logs)) {
                 
                 <form id="profileForm" class="p-8 pb-0">
                     <input type="hidden" name="action" value="update_profile">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">First Name</label>
-                            <input type="text" name="firstName" value="<?php echo $user['FirstName']; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                            <input type="text" name="firstName" value="<?php echo $user['FirstName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Middle Name</label>
+                            <input type="text" name="middleName" value="<?php echo $user['MiddleName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Last Name</label>
-                            <input type="text" name="lastName" value="<?php echo $user['LastName']; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
+                            <input type="text" name="lastName" value="<?php echo $user['LastName'] ?? ''; ?>" class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 px-4 text-sm font-medium">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Username</label>
-                            <input type="text" disabled value="<?php echo $user['Username']; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
+                            <input type="text" disabled value="<?php echo $user['Username'] ?? ''; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Role</label>
-                            <input type="text" disabled value="<?php echo $user['Role']; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
+                            <input type="text" disabled value="<?php echo $user['Role'] ?? 'User'; ?>" class="form-input rounded-xl bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 py-3 px-4 text-slate-500 font-medium cursor-not-allowed">
                         </div>
                     </div>
                 
@@ -130,7 +169,7 @@ if (!empty($transaction_logs)) {
                 const pass1 = this.querySelector('[name="newPassword"]').value;
                 const pass2 = this.querySelector('[name="confirmPassword"]').value;
                 if (pass1 !== pass2) {
-                    alert('New passwords do not match!');
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'New passwords do not match!', type: 'error' } }));
                     return;
                 }
                 submitSettingsForm(this, 'Password updated successfully!');
@@ -152,15 +191,15 @@ if (!empty($transaction_logs)) {
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert(successMsg);
-                    location.reload();
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { msg: successMsg, type: 'success' } }));
+                    if (form.id === 'securityForm') form.reset(); 
                 } else {
-                    alert(data.message || 'Error updating settings');
+                    window.dispatchEvent(new CustomEvent('notify', { detail: { msg: data.message || 'Error updating settings', type: 'error' } }));
                 }
             })
             .catch(err => {
                 console.error(err);
-                alert('An error occurred.');
+                window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'An error occurred during submission.', type: 'error' } }));
             })
             .finally(() => {
                 btn.disabled = false;
@@ -168,20 +207,19 @@ if (!empty($transaction_logs)) {
             });
         }
 
-        // Appearance Handler (matches index.php logic)
+        // Appearance Handler
         function setTheme(theme) {
             if (theme === 'system') {
                 localStorage.removeItem('color-theme');
             } else {
                 localStorage.setItem('color-theme', theme);
             }
-            // Trigger the same logic in index.php
             if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             } else {
                 document.documentElement.classList.remove('dark');
             }
-            alert('Appearance preference saved!');
+            window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'Appearance preference saved!', type: 'success' } }));
         }
         </script>
 

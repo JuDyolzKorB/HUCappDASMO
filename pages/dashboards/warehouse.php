@@ -100,9 +100,9 @@ foreach ($inventory as $batch) {
                         <?php else: ?>
                             <?php foreach (array_slice($pendingIssuanceReqs, 0, 5) as $req): ?>
                             <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                                <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $req['RequisitionNumber']; ?></td>
+                                <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $req['RequisitionNumber'] ?? 'REQ-Unknown'; ?></td>
                                 <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $req['HealthCenterName']; ?></td>
-                                <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($req['RequestedDate'])); ?></td>
+                                <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($req['RequestedDate'] ?? $req['RequestDate'] ?? 'now')); ?></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -138,8 +138,8 @@ foreach ($inventory as $batch) {
                         <?php else: ?>
                              <?php foreach (array_slice($pendingReceivingPOs, 0, 5) as $po): ?>
                             <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                                <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $po['PONumber']; ?></td>
-                                <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $po['SupplierName']; ?></td>
+                                <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $po['PONumber'] ?? 'PO-Unknown'; ?></td>
+                                <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $po['SupplierName'] ?? 'Unknown Supplier'; ?></td>
                                 <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($po['PODate'])); ?></td>
                             </tr>
                              <?php endforeach; ?>

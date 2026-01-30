@@ -97,8 +97,8 @@ $receivings = get_data('receivings');
                              }
                         ?>
                         <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                            <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $po['PONumber']; ?></td>
-                            <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $po['SupplierName']; ?></td>
+                            <td class="px-6 py-4 font-bold text-slate-900 dark:text-white text-sm"><?php echo $po['PONumber'] ?? 'PO-Unknown'; ?></td>
+                            <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $po['SupplierName'] ?? 'Unknown Supplier'; ?></td>
                             <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo $approval ? date('M d, Y', strtotime($approval['DecisionDate'])) : 'N/A'; ?></td>
                             <td class="px-6 py-4">
                                 <span class="status-badge status-success">Approved</span>

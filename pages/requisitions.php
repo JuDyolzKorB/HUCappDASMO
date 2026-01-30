@@ -58,10 +58,10 @@ $requisitions = get_data('requisitions');
                             $rJson = htmlspecialchars(json_encode($r), ENT_QUOTES, 'UTF-8');
                         ?>
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $r['RequisitionNumber']; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $r['RequisitionNumber'] ?? 'REQ-Unknown'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $r['HealthCenterName']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $r['RequestedByFullName']; ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($r['RequestedDate'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($r['RequestedDate'] ?? $r['RequestDate'] ?? 'now')); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $statusColor; ?>">
                                     <?php echo $r['StatusType']; ?>
