@@ -140,18 +140,30 @@ try {
             'IssuedItems' => []
         ];
         
-        foreach ($allocationPlan as $item) {
-             // Deduct from inventory
-             foreach ($inventory as &$batch) {
-                 if ($batch['BatchID'] === $item['batchId']) {
-                     $batch['QuantityOnHand'] -= (int)$item['quantity'];
-                     $newIssuance['IssuedItems'][] = [
-                         'IssuanceItemID' => 'II-' . rand(10000, 99999),
-                         'ItemID' => $batch['ItemID'],
-                         'BatchID' => $batch['BatchID'],
-                         'QuantityIssued' => (int)$item['quantity']
-                     ];
-                     break;
+        foreach ($allocationPlan as $planItem) {
+             if (empty($planItem['allocated'])) continue;
+
+             foreach ($planItem['allocated'] as $allocatedBatch) {
+                 $batchId = $allocatedBatch['BatchID'] ?? '';
+                 $qtyToIssue = (int)($allocatedBatch['Quantity'] ?? 0);
+
+                 if (!$batchId || $qtyToIssue <= 0) continue;
+
+                 // Deduct from inventory
+                 foreach ($inventory as &$batch) {
+                     if ($batch['BatchID'] === $batchId) {
+                         $batch['QuantityOnHand'] -= $qtyToIssue;
+                         $batch['QuantityReleased'] = ($batch['QuantityReleased'] ?? 0) + $qtyToIssue;
+                         
+                         $newIssuance['IssuedItems'][] = [
+                             'IssuanceItemID' => 'II-' . rand(10000, 99999),
+                             'ItemID' => $batch['ItemID'],
+                             'BatchID' => $batch['BatchID'],
+                             'RequisitionItemID' => $planItem['reqItemId'] ?? null,
+                             'QuantityIssued' => $qtyToIssue
+                         ];
+                         break;
+                     }
                  }
              }
         }
@@ -175,7 +187,7 @@ try {
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'receive_items') {
-        $poid = $_POST['poid'] ?? $_POST['poId'] ?? ''; // Handle both for robustness
+        $poid = $_POST['poid'] ?? $_POST['poId'] ?? ''; 
         $items = $_POST['items'] ?? []; 
         
         $inventory = get_data('inventory');
@@ -196,7 +208,16 @@ try {
             $qtyReceived = (float)$item['quantityReceived'];
             if ($qtyReceived > 0) {
                 // Add to Inventory Batches
-                $batchId = 'BATCH-' . date('Ymd') . '-' . rand(1000, 9999);
+                // Generate Incremental Batch ID
+                $maxId = 0;
+                foreach ($inventory as $b) {
+                    if (preg_match('/BATCH-(\d+)/', $b['BatchID'], $matches)) {
+                        $num = (int)$matches[1];
+                        if ($num > $maxId) $maxId = $num;
+                    }
+                }
+                $batchId = 'BATCH-' . str_pad($maxId + 1, 5, '0', STR_PAD_LEFT);
+
                 $newBatch = [
                     'BatchID' => $batchId,
                     'ItemID' => $item['itemId'],
@@ -204,7 +225,8 @@ try {
                     'ExpiryDate' => $item['expiryDate'],
                     'UnitCost' => (float)$item['unitCost'],
                     'DateReceived' => date('Y-m-d'), // CRITICAL for FIFO
-                    'WarehouseID' => 'W01' // Default
+                    'WarehouseID' => 'W01', // Default
+                    'QuantityReleased' => 0
                 ];
                 $inventory[] = $newBatch;
                 $newReceiving['ReceivedItems'][] = $newBatch;
@@ -556,6 +578,91 @@ try {
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid report data']);
         }
+    } elseif ($action === 'add_item') {
+        $itemName = $_POST['itemName'] ?? '';
+        $itemType = $_POST['itemType'] ?? '';
+        $unit = $_POST['unitOfMeasure'] ?? '';
+        
+        $items = get_data('items');
+        
+        // Generate ItemID (I0001)
+        $maxId = 0;
+        foreach ($items as $i) {
+            if (preg_match('/I(\d+)/', $i['ItemID'], $matches)) {
+                $num = (int)$matches[1];
+                if ($num > $maxId) $maxId = $num;
+            }
+        }
+        $newItemId = 'I' . str_pad($maxId + 1, 4, '0', STR_PAD_LEFT);
+        
+        $newItem = [
+            'ItemID' => $newItemId,
+            'ItemName' => $itemName,
+            'ItemType' => $itemType,
+            'UnitOfMeasure' => $unit
+        ];
+        
+        $items[] = $newItem;
+        
+        if (save_data('items', $items)) {
+             log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Added item $newItemId");
+             echo json_encode(['success' => true]);
+        } else {
+             echo json_encode(['success' => false, 'message' => 'Failed to save item']);
+        }
+        
+    } elseif ($action === 'update_item') {
+        $itemId = $_POST['itemId'] ?? '';
+        $itemName = $_POST['itemName'] ?? '';
+        $itemType = $_POST['itemType'] ?? '';
+        $unit = $_POST['unitOfMeasure'] ?? '';
+        
+        $items = get_data('items');
+        $updated = false;
+        
+        foreach ($items as &$i) {
+            if ($i['ItemID'] === $itemId) {
+                $i['ItemName'] = $itemName;
+                $i['ItemType'] = $itemType;
+                $i['UnitOfMeasure'] = $unit;
+                $updated = true;
+                break;
+            }
+        }
+        
+        if ($updated && save_data('items', $items)) {
+             log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Updated item $itemId");
+             echo json_encode(['success' => true]);
+        } else {
+             echo json_encode(['success' => false, 'message' => 'Failed to update item']);
+        }
+
+    } elseif ($action === 'delete_item') {
+        $itemId = $_POST['itemId'] ?? '';
+        
+        $items = get_data('items');
+        $newItems = [];
+        $found = false;
+        
+        foreach ($items as $i) {
+            if ($i['ItemID'] === $itemId) {
+                $found = true;
+                continue; // Skip logic to delete
+            }
+            $newItems[] = $i;
+        }
+        
+        if ($found) {
+            if (save_data('items', $newItems)) {
+                 log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Deleted item $itemId");
+                 echo json_encode(['success' => true]);
+            } else {
+                 echo json_encode(['success' => false, 'message' => 'Failed to delete item']);
+            }
+        } else {
+             echo json_encode(['success' => false, 'message' => 'Item not found']);
+        }
+
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
     }

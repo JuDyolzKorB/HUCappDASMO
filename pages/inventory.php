@@ -6,42 +6,42 @@ $items = get_data('items');
 $aggregatedInventory = [];
 $batchesByItem = []; // Store batches grouped by ItemID
 
+// Index batches by ItemID for faster lookup
+$batchesByItem = [];
 foreach ($inventory as $batch) {
-    $itemId = $batch['ItemID'];
-    
-    if (!isset($aggregatedInventory[$itemId])) {
-        // Find item details
-        $itemDetails = null;
-        foreach ($items as $item) {
-            if ($item['ItemID'] === $itemId) {
-                $itemDetails = $item;
-                break;
-            }
-        }
-        
-        $aggregatedInventory[$itemId] = [
-            'ItemID' => $itemId,
-            'ItemName' => $itemDetails ? $itemDetails['ItemName'] : $itemId,
-            'Category' => $itemDetails ? ($itemDetails['ItemType'] ?? 'N/A') : 'N/A',
-            'Unit' => $itemDetails ? ($itemDetails['UnitOfMeasure'] ?? 'N/A') : 'N/A',
-            'TotalQuantity' => 0,
-            'NextExpiry' => null
-        ];
-        $batchesByItem[$itemId] = [];
-    }
-    
-    // Add to total quantity
-    $aggregatedInventory[$itemId]['TotalQuantity'] += $batch['QuantityOnHand'];
-    
-    // Track earliest expiry date (FEFO - First Expired, First Out)
+    // Only count batches with positive quantity
+    // (Or include 0 if you want to see history, but usually we just want active stock)
     if ($batch['QuantityOnHand'] > 0) {
-        if ($aggregatedInventory[$itemId]['NextExpiry'] === null || 
-            strtotime($batch['ExpiryDate']) < strtotime($aggregatedInventory[$itemId]['NextExpiry'])) {
-            $aggregatedInventory[$itemId]['NextExpiry'] = $batch['ExpiryDate'];
-        }
-        // Store batch for this item
-        $batchesByItem[$itemId][] = $batch;
+        $batchesByItem[$batch['ItemID']][] = $batch;
     }
+}
+
+$aggregatedInventory = [];
+foreach ($items as $item) {
+    $itemId = $item['ItemID'];
+    
+    // Calculate total quantity from batches
+    $totalQty = 0;
+    $nextExpiry = null;
+    $itemBatches = $batchesByItem[$itemId] ?? [];
+    
+    foreach ($itemBatches as $b) {
+        $totalQty += $b['QuantityOnHand'];
+        
+        // Track earliest expiry (FEFO)
+        if ($nextExpiry === null || strtotime($b['ExpiryDate']) < strtotime($nextExpiry)) {
+            $nextExpiry = $b['ExpiryDate'];
+        }
+    }
+
+    $aggregatedInventory[] = [
+        'ItemID' => $itemId,
+        'ItemName' => $item['ItemName'],
+        'Category' => $item['ItemType'] ?? 'N/A',
+        'Unit' => $item['UnitOfMeasure'] ?? 'N/A',
+        'TotalQuantity' => $totalQty,
+        'NextExpiry' => $nextExpiry
+    ];
 }
 
 // Sort batches by expiry date (FEFO) for each item
@@ -62,6 +62,9 @@ $aggregatedInventory = array_values($aggregatedInventory);
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Inventory Status</h2>
             <p class="text-slate-500 font-medium text-sm">Real-time overview of current stock levels and expiry information.</p>
         </div>
+        <button onclick="openAddItemModal()" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
+             + Add Item
+         </button>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -96,10 +99,20 @@ $aggregatedInventory = array_values($aggregatedInventory);
                                 <?php echo $item['NextExpiry'] ? date('n/j/Y', strtotime($item['NextExpiry'])) : 'N/A'; ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                <svg id="chevron-<?php echo $item['ItemID']; ?>" class="w-5 h-5 text-slate-400 inline-block transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                </svg>
-                            </td>
+                                <div class="flex items-center justify-end space-x-2">
+                                     <button onclick="event.stopPropagation(); openEditItemModal(<?php echo htmlspecialchars(json_encode($item)); ?>)" class="text-slate-400 hover:text-primary transition-colors">
+                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                     </button>
+                                     <button onclick="event.stopPropagation(); deleteItem('<?php echo $item['ItemID']; ?>')" class="text-slate-400 hover:text-red-500 transition-colors">
+                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                     </button>
+                                     <button onclick="toggleBatches('<?php echo $item['ItemID']; ?>')" class="text-slate-400 hover:text-slate-600 transition-colors">
+                                         <svg id="chevron-<?php echo $item['ItemID']; ?>" class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                         </svg>
+                                     </button>
+                                </div>
+                             </td>
                         </tr>
                         
                         <!-- Expandable Batch Details Row -->
@@ -146,27 +159,107 @@ $aggregatedInventory = array_values($aggregatedInventory);
     </div>
 </div>
 
+<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
+            <h3 id="modalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Add New Item</h3>
+        </div>
+        <form id="itemForm" class="p-6 space-y-5">
+            <input type="hidden" name="action" id="formAction" value="add_item">
+            <input type="hidden" name="itemId" id="formItemId">
+            
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Item Name</label>
+                <input type="text" name="itemName" id="itemName" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
+                    <select name="itemType" id="itemType" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+                        <option value="Medicine">Medicine</option>
+                        <option value="Supply">Supply</option>
+                        <option value="Equipment">Equipment</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit</label>
+                     <input type="text" name="unitOfMeasure" id="unitOfMeasure" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeItemModal()" class="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 rounded-lg">Cancel</button>
+                <button type="submit" class="px-5 py-2.5 text-sm font-bold text-white bg-primary rounded-lg">Save Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function toggleBatches(itemId) {
     const batchesRow = document.getElementById('batches-' + itemId);
     const chevron = document.getElementById('chevron-' + itemId);
     
     if (batchesRow.classList.contains('hidden')) {
-        // Close all other open batch rows
-        document.querySelectorAll('[id^="batches-"]').forEach(row => {
-            row.classList.add('hidden');
-        });
-        document.querySelectorAll('[id^="chevron-"]').forEach(icon => {
-            icon.style.transform = 'rotate(0deg)';
-        });
+        document.querySelectorAll('[id^="batches-"]').forEach(row => row.classList.add('hidden'));
+        document.querySelectorAll('[id^="chevron-"]').forEach(icon => icon.style.transform = 'rotate(0deg)'); // Reset lookup
         
-        // Open this batch row
         batchesRow.classList.remove('hidden');
-        chevron.style.transform = 'rotate(90deg)';
+        if(chevron) chevron.style.transform = 'rotate(180deg)';
     } else {
-        // Close this batch row
         batchesRow.classList.add('hidden');
-        chevron.style.transform = 'rotate(0deg)';
+        if(chevron) chevron.style.transform = 'rotate(0deg)';
     }
 }
+
+function openAddItemModal() {
+    document.getElementById('modalTitle').innerText = 'Add New Item';
+    document.getElementById('formAction').value = 'add_item';
+    document.getElementById('formItemId').value = '';
+    document.getElementById('itemForm').reset();
+    document.getElementById('itemModal').classList.remove('hidden');
+}
+
+function openEditItemModal(item) {
+    document.getElementById('modalTitle').innerText = 'Edit Item';
+    document.getElementById('formAction').value = 'update_item';
+    document.getElementById('formItemId').value = item.ItemID;
+    document.getElementById('itemName').value = item.ItemName;
+    document.getElementById('itemType').value = item.Category; // Mapped from display logic
+    document.getElementById('unitOfMeasure').value = item.Unit; // Mapped from display logic
+    document.getElementById('itemModal').classList.remove('hidden');
+}
+
+function closeItemModal() {
+    document.getElementById('itemModal').classList.add('hidden');
+}
+
+function deleteItem(itemId) {
+    if(!confirm('Are you sure? This will delete the item and ALL its history/stock.')) return;
+    
+    const formData = new FormData();
+    formData.append('action', 'delete_item');
+    formData.append('itemId', itemId);
+    
+    fetch('api.php', { method: 'POST', body: formData })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) window.location.reload();
+        else alert(data.message || 'Error');
+    });
+}
+
+document.getElementById('itemForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch('api.php', { method: 'POST', body: formData })
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) window.location.reload();
+        else alert(data.message || 'Error');
+    });
+});
 </script>
