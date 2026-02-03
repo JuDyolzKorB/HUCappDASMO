@@ -2,6 +2,7 @@
 $notifications = []; // Placeholder for now
 $user = getCurrentUser();
 ?>
+<style>[x-cloak] { display: none !important; }</style>
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
     <div class="px-6 py-3.5 flex justify-between items-center">
         <div class="flex items-center space-x-4">
@@ -96,12 +97,76 @@ $user = getCurrentUser();
                         <span>Account Settings</span>
                     </a>
                     <div class="border-t border-slate-100 dark:border-slate-800 my-1"></div>
-                    <a href="index.php?page=logout" class="flex items-center space-x-3 w-full text-left px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                    <button @click="$dispatch('open-logout-modal')" class="flex items-center space-x-3 w-full text-left px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                         <span>Sign Out</span>
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </header>
+
+<!-- Logout Confirmation Modal -->
+<div x-data="{ open: false }" 
+     @open-logout-modal.window="open = true" 
+     class="relative z-[60]" 
+     aria-labelledby="modal-title" 
+     role="dialog" 
+     aria-modal="true"
+     x-show="open"
+     x-cloak>
+    
+    <!-- Background backdrop -->
+    <div x-show="open"
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm transition-opacity"></div>
+
+    <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <!-- Modal panel -->
+            <div x-show="open"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 @click.away="open = false"
+                 class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-slate-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-slate-200 dark:border-slate-800">
+                
+                <div class="p-6">
+                    <div class="mx-auto flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 sm:mx-0 sm:h-12 sm:w-12 mb-4 sm:mb-0">
+                        <svg class="h-8 w-8 text-red-600 dark:text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                    </div>
+                    <div class="sm:flex sm:items-start">
+                        
+                        <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                            <h3 class="text-lg font-bold leading-6 text-slate-900 dark:text-white" id="modal-title">Sign Out?</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">
+                                    Are you sure you want to sign out of your account? You will need to sign in again to access the system.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                    <a href="index.php?page=logout" class="inline-flex w-full justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-red-500 sm:w-auto transition-all">
+                        Yes, Sign Out
+                    </a>
+                    <button type="button" @click="open = false" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white dark:bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 sm:mt-0 sm:w-auto transition-all">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

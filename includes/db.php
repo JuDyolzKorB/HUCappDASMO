@@ -89,7 +89,8 @@ class Database {
             'notice_of_issues' => 'NoticeOfIssue',
             'transaction_logs' => 'TransactionAuditLog',
             'security_logs' => 'SecurityLog',
-            'reports' => 'Report'
+            'reports' => 'Report',
+            'notifications' => 'Notifications'
         ];
         
         return $mapping[$filename] ?? $filename;
@@ -258,13 +259,48 @@ function get_data($file) {
         case 'transaction_logs':
             return $db->fetchAll("SELECT * FROM TransactionAuditLog ORDER BY ActionDate DESC LIMIT 100");
             
+        case 'adjustment_logs':
+            // Fetch disposal records from NoticeOfIssue
+            $disposals = $db->fetchAll("
+                SELECT 
+                    noi.IssueID as ID,
+                    'Disposal' as Type,
+                    CONCAT(i.ItemName, ' (', noi.BatchID, ')') as Reference,
+                    noi.QuantityAffected as Quantity,
+                    CONCAT(noi.IssueType, ': ', COALESCE(noi.Remarks, '')) as Reason,
+                    noi.ReportDate as Date,
+                    noi.PhotoPath,
+                    noi.BatchID
+                FROM NoticeOfIssue noi
+                LEFT JOIN CentralInventoryBatch cib ON noi.BatchID = cib.BatchID
+                LEFT JOIN Item i ON cib.ItemID = i.ItemID
+                ORDER BY noi.ReportDate DESC
+            ");
+            
+            // Fetch return records from RequisitionAdjustment
+            $returns = $db->fetchAll("
+                SELECT 
+                    ra.RequisitionAdjustmentID as ID,
+                    'Return' as Type,
+                    CONCAT('Adjustment #', ra.RequisitionAdjustmentID) as Reference,
+                    0 as Quantity,
+                    ra.Reason,
+                    ra.AdjustmentDate as Date
+                FROM RequisitionAdjustment ra
+                WHERE ra.AdjustmentType = 'Return'
+                ORDER BY ra.AdjustmentDate DESC
+            ");
+            
+            // Combine and sort by date
+            $combined = array_merge($disposals, $returns);
+            usort($combined, function($a, $b) {
+                return strtotime($b['Date']) - strtotime($a['Date']);
+            });
+            
+            return $combined;
+            
         case 'reports':
-            // Reports might still be in JSON - keep file-based for now
-            $path = __DIR__ . '/../data/reports.json';
-            if (file_exists($path)) {
-                return json_decode(file_get_contents($path), true) ?? [];
-            }
-            return [];
+            return $db->fetchAll("SELECT * FROM Report ORDER BY GeneratedDate DESC");
             
         default:
             return $db->read($file);
@@ -541,7 +577,23 @@ function save_data($file, $data) {
         case 'security_logs':
         case 'transaction_logs':
         case 'reports':
-            // These are handled by specific functions
+            foreach ($data as $rpt) {
+                // Check if report exists
+                $existing = $db->fetchOne("SELECT ReportID FROM Report WHERE ReportID = ?", [$rpt['ReportID']]);
+                if (!$existing) {
+                    $db->execute(
+                        "INSERT INTO Report (ReportID, UserID, ReportType, GeneratedDate, GeneratedForOffice) 
+                         VALUES (?, ?, ?, ?, ?)",
+                        [
+                            $rpt['ReportID'],
+                            $rpt['UserID'] ?? $_SESSION['user']['UserID'] ?? null,
+                            $rpt['ReportType'],
+                            $rpt['GeneratedDate'] ?? date('Y-m-d H:i:s'),
+                            $rpt['GeneratedForOffice']
+                        ]
+                    );
+                }
+            }
             return true;
             
         default:

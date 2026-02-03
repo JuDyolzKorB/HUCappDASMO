@@ -19,7 +19,7 @@ $rejectedCount = count(array_filter($myRequisitions, function($r) { return $r['S
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Pending -->
-        <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-xl shadow-lg p-6">
+        <div class="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-2xl transition-shadow" onclick="window.location.href='index.php?page=requisitions'">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium opacity-90">My Pending Requisitions</h3>
                 <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -28,7 +28,7 @@ $rejectedCount = count(array_filter($myRequisitions, function($r) { return $r['S
         </div>
 
         <!-- Approved -->
-        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg p-6">
+        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-2xl transition-shadow" onclick="window.location.href='index.php?page=requisitions'">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium opacity-90">My Approved Requisitions</h3>
                  <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -37,7 +37,7 @@ $rejectedCount = count(array_filter($myRequisitions, function($r) { return $r['S
         </div>
 
         <!-- Rejected -->
-        <div class="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl shadow-lg p-6">
+        <div class="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-2xl transition-shadow" onclick="window.location.href='index.php?page=requisitions'">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-medium opacity-90">My Rejected Requisitions</h3>
                  <svg class="w-8 h-8 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>

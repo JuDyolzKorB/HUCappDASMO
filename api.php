@@ -568,16 +568,314 @@ try {
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save purchase order']);
         }
-    } elseif ($action === 'save_report') {
-        $report = json_decode($_POST['report'] ?? '{}', true);
-        if ($report) {
-            $reports = get_data('reports');
-            array_unshift($reports, $report);
-            save_data('reports', $reports);
-            echo json_encode(['success' => true]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Invalid report data']);
+    } elseif ($action === 'generate_report') {
+        $reportType = $_POST['reportType'] ?? '';
+        $office = $_POST['forOffice'] ?? '';
+        $extraId = $_POST['poNumber'] ?? $_POST['itemSelect'] ?? ''; // PO ID or Item ID depending on type
+        
+        $reportId = 'REP-' . date('Ymd') . '-' . rand(1000, 9999);
+        $generatedDate = date('Y-m-d H:i:s');
+        $reportData = []; // This will be stored maybe in a separate table or file, or just returned for now. 
+        // Note: The schema only has Report table metadata. Detailed report content requires a separate store (like ReportData table or JSON column).
+        // Since schema is locked, we'll focus on saving metadata and returning display data.
+        
+        $inventory = get_data('inventory');
+        $items = get_data('items');
+        
+        if ($reportType === 'inventory_valuation') {
+            foreach ($items as $item) {
+                $qty = 0;
+                $val = 0;
+                foreach ($inventory as $batch) {
+                    if ($batch['ItemID'] === $item['ItemID']) {
+                        $qty += $batch['QuantityOnHand'];
+                        $val += ($batch['QuantityOnHand'] * $batch['UnitCost']);
+                    }
+                }
+                if ($qty > 0) {
+                    $reportData[] = [
+                        'itemName' => $item['ItemName'],
+                        'totalQuantity' => $qty,
+                        'averageCost' => $qty > 0 ? round($val / $qty, 2) : 0,
+                        'totalValue' => round($val, 2)
+                    ];
+                }
+            }
+        } elseif ($reportType === 'receipt_confirmation') {
+            // Find receiving for PO
+            $receivings = get_data('receivings');
+            $targetRec = null;
+            // Simplified: look for any receiving linked to this PO
+            foreach ($receivings as $rcv) {
+                if ($rcv['POID'] === $extraId) {
+                    $targetRec = $rcv; 
+                    break;
+                }
+            }
+            // Populate basic info even if not found
+             $reportData = [
+                'poNumber' => $extraId,
+                'supplierName' => 'Unknown', // Enh: join with PO/Supplier
+                'receivedDate' => $targetRec['ReceivedDate'] ?? 'Pending',
+                'receivedBy' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
+                'items' => $targetRec['ReceivedItems'] ?? []
+            ];
+        } elseif ($reportType === 'stock_card') {
+             // Basic Stock Card Calculation
+             $stockMoves = [];
+             // 1. Receivings (In)
+             $receivings = get_data('receivings');
+             foreach ($receivings as $rcv) {
+                 if (isset($rcv['ReceivedItems'])) {
+                    foreach ($rcv['ReceivedItems'] as $ri) {
+                        if (get_item_id_from_batch($ri['BatchID'], $inventory) === $extraId) {
+                            $stockMoves[] = [
+                                'date' => $rcv['ReceivedDate'],
+                                'type' => 'Receiving',
+                                'ref' => $rcv['POID'],
+                                'in' => $ri['QuantityReceived'],
+                                'out' => 0
+                            ];
+                        }
+                    }
+                 }
+             }
+             // 2. Issuances (Out)
+             $issuances = get_data('issuances');
+             foreach ($issuances as $iss) {
+                 if (isset($iss['IssuedItems'])) {
+                     foreach ($iss['IssuedItems'] as $ii) {
+                         if (get_item_id_from_batch($ii['BatchID'], $inventory) === $extraId) {
+                            $stockMoves[] = [
+                                'date' => $iss['DateIssued'],
+                                'type' => 'Issuance',
+                                'ref' => $iss['RequisitionID'],
+                                'in' => 0,
+                                'out' => $ii['QuantityIssued']
+                            ];
+                         }
+                     }
+                 }
+             }
+             
+             // Sort by date
+             usort($stockMoves, function($a, $b) {
+                return strtotime($a['date']) - strtotime($b['date']);
+             });
+             
+             $balance = 0;
+             foreach ($stockMoves as &$move) {
+                 $balance += $move['in'];
+                 $balance -= $move['out'];
+                 $move['balance'] = $balance;
+             }
+             $reportData = ['itemName' => $extraId, 'transactions' => $stockMoves];
         }
+
+        $newReport = [
+            'ReportID' => $reportId,
+            'UserID' => $_SESSION['user']['UserID'],
+            'ReportType' => ucwords(str_replace('_', ' ', $reportType)),
+            'GeneratedDate' => $generatedDate,
+            'GeneratedForOffice' => $office,
+            'GeneratedByFullName' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName']
+        ];
+        
+        // Save Metadata to DB
+        $reports = get_data('reports'); // This now queries DB
+        $reports[] = $newReport;
+        save_data('reports', $reports); // This now inserts to DB
+        
+        // Return result with data for immediate display
+        $newReport['data'] = $reportData;
+        echo json_encode(['success' => true, 'report' => $newReport]);
+
+    } elseif ($action === 'save_report') {
+         // Deprecated but handled for backward compat if client sends it
+         echo json_encode(['success' => true]);
+
+    } elseif ($action === 'dispose_stock') {
+        $batchId = $_POST['batchId'] ?? '';
+        $qty = (int)($_POST['quantity'] ?? 0);
+        $reason = $_POST['reason'] ?? '';
+        $remarks = $_POST['remarks'] ?? '';
+        
+        if (!$batchId || $qty <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+            exit;
+        }
+        
+        global $db;
+        $batch = $db->fetchOne("SELECT * FROM CentralInventoryBatch WHERE BatchID = ?", [$batchId]);
+        
+        if (!$batch || $batch['QuantityOnHand'] < $qty) {
+            echo json_encode(['success' => false, 'message' => 'Insufficient stock']);
+            exit;
+        }
+        
+        // Handle photo upload
+        $photoPath = null;
+        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = __DIR__ . '/uploads/adjustments/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            $fileExtension = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only JPG, PNG, and GIF allowed.']);
+                exit;
+            }
+            
+            if ($_FILES['photo']['size'] > 5 * 1024 * 1024) { // 5MB limit
+                echo json_encode(['success' => false, 'message' => 'File too large. Maximum 5MB allowed.']);
+                exit;
+            }
+            
+            $fileName = 'disposal_' . uniqid() . '.' . $fileExtension;
+            $targetPath = $uploadDir . $fileName;
+            
+            if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetPath)) {
+                $photoPath = 'uploads/adjustments/' . $fileName;
+            }
+        }
+        
+        $db->beginTransaction();
+        try {
+            // Update Inventory
+            $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand - ? WHERE BatchID = ?", [$qty, $batchId]);
+            
+            // Create Notice Of Issue
+            $issueId = 'ISS-' . uniqid();
+            $db->execute(
+                "INSERT INTO NoticeOfIssue (IssueID, BatchID, UserID, ReportDate, IssueType, QuantityAffected, Remarks, StatusType, PhotoPath) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    $issueId,
+                    $batchId,
+                    $_SESSION['user']['UserID'],
+                    date('Y-m-d H:i:s'),
+                    $reason,
+                    $qty,
+                    $remarks,
+                    'Open',
+                    $photoPath
+                ]
+            );
+            
+            $db->commit();
+            logTransaction('Stock Disposal', 'NoticeOfIssue', $issueId);
+             echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
+    } elseif ($action === 'update_adjustment') {
+        $adjustmentId = $_POST['adjustmentId'] ?? '';
+        $adjustmentType = $_POST['adjustmentType'] ?? '';
+        $quantity = (int)($_POST['quantity'] ?? 0);
+        $reason = $_POST['reason'] ?? '';
+        
+        if (!$adjustmentId || !$adjustmentType) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+            exit;
+        }
+        
+        global $db;
+        
+        try {
+            if ($adjustmentType === 'Disposal') {
+                // Handle photo upload if provided
+                $photoPath = null;
+                if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+                    $uploadDir = __DIR__ . '/uploads/adjustments/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    
+                    $fileExtension = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+                    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                    
+                    if (!in_array($fileExtension, $allowedExtensions)) {
+                        echo json_encode(['success' => false, 'message' => 'Invalid file type']);
+                        exit;
+                    }
+                    
+                    if ($_FILES['photo']['size'] > 5 * 1024 * 1024) {
+                        echo json_encode(['success' => false, 'message' => 'File too large']);
+                        exit;
+                    }
+                    
+                    $fileName = 'disposal_' . uniqid() . '.' . $fileExtension;
+                    $targetPath = $uploadDir . $fileName;
+                    
+                    if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetPath)) {
+                        $photoPath = 'uploads/adjustments/' . $fileName;
+                    }
+                }
+                
+                // Update NoticeOfIssue
+                if ($photoPath) {
+                    $db->execute(
+                        "UPDATE NoticeOfIssue SET QuantityAffected = ?, Remarks = ?, PhotoPath = ? WHERE IssueID = ?",
+                        [$quantity, $reason, $photoPath, $adjustmentId]
+                    );
+                } else {
+                    $db->execute(
+                        "UPDATE NoticeOfIssue SET QuantityAffected = ?, Remarks = ? WHERE IssueID = ?",
+                        [$quantity, $reason, $adjustmentId]
+                    );
+                }
+            } else {
+                // Update RequisitionAdjustment
+                $db->execute(
+                    "UPDATE RequisitionAdjustment SET Reason = ? WHERE RequisitionAdjustmentID = ?",
+                    [$reason, $adjustmentId]
+                );
+            }
+            
+            logTransaction('Updated Adjustment', $adjustmentType, $adjustmentId);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
+    } elseif ($action === 'return_stock') {
+        $reqId = $_POST['requisitionId'] ?? '';
+        $reason = $_POST['reason'] ?? '';
+        
+        if (!$reqId) {
+             echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+             exit;
+        }
+        
+        global $db;
+        $adjId = 'RADJ-' . uniqid();
+        
+        // Just create record for now as specific item details aren't passed
+        $res = $db->execute(
+            "INSERT INTO RequisitionAdjustment (RequisitionAdjustmentID, IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
+             VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                $adjId,
+                null, // No issuance ID linked directly in form, could query via ReqID if needed
+                $_SESSION['user']['UserID'],
+                'Return',
+                date('Y-m-d H:i:s'),
+                $reason
+            ]
+        );
+        
+        if ($res) {
+             logTransaction('Stock Return Request', 'RequisitionAdjustment', $adjId);
+             echo json_encode(['success' => true]);
+        } else {
+             echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
     } elseif ($action === 'add_item') {
         $itemName = $_POST['itemName'] ?? '';
         $itemType = $_POST['itemType'] ?? '';

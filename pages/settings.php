@@ -223,7 +223,7 @@ if (!empty($transaction_logs)) {
         <!-- Security Tab -->
         <div x-show="activeTab === 'security'" x-cloak class="animate-fade-in space-y-6" x-data="{ showCurr: false, showNew: false, showConfirm: false }">
             <div class="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Security Settings</h3>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Security Settings </h3>
                 <p class="text-sm text-slate-500 mb-8 font-medium">Update your password and manage account security.</p>
                 
                 <form id="securityForm" class="space-y-6 max-w-lg" @submit.prevent="handleSecuritySubmit($el)">
@@ -422,50 +422,6 @@ if (!empty($transaction_logs)) {
             </div>
         </div>
 
-        <!-- Security Tab -->
-        <div x-show="activeTab === 'security'" x-cloak class="animate-fade-in space-y-6" x-data="{ showCurr: false, showNew: false, showConfirm: false }">
-            <div class="bg-white dark:bg-slate-800 rounded-3xl p-8 border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Security Settings</h3>
-                <p class="text-sm text-slate-500 mb-8 font-medium">Update your password and manage account security.</p>
-                
-                <form id="securityForm" class="space-y-6 max-w-lg">
-                    <input type="hidden" name="action" value="update_password">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Current Password</label>
-                        <div class="relative">
-                            <input :type="showCurr ? 'text' : 'password'" name="currentPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
-                            <button type="button" @click="showCurr = !showCurr" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
-                                <svg x-show="!showCurr" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                <svg x-show="showCurr" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">New Password</label>
-                        <div class="relative">
-                            <input :type="showNew ? 'text' : 'password'" name="newPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
-                            <button type="button" @click="showNew = !showNew" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
-                                <svg x-show="!showNew" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                <svg x-show="showNew" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Confirm New Password</label>
-                        <div class="relative">
-                            <input :type="showConfirm ? 'text' : 'password'" name="confirmPassword" required class="form-input rounded-xl border-slate-200 dark:border-slate-700 py-3 pr-10">
-                            <button type="button" @click="showConfirm = !showConfirm" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
-                                <svg x-show="!showConfirm" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-                                <svg x-show="showConfirm" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.243 4.243L9.828 9.828" /></svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex justify-end pt-4">
-                        <button type="submit" class="btn btn-primary px-8 py-3 rounded-xl font-bold">Update Password</button>
-                    </div>
-                </form>
-            </div>
-        </div>
 
         <!-- Notifications Tab -->
         <div x-show="activeTab === 'notifications'" x-cloak class="animate-fade-in" x-data="{ emailNotify: true, inAppNotify: true }">

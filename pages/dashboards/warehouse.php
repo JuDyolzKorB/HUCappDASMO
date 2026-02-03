@@ -38,7 +38,7 @@ foreach ($inventory as $batch) {
 
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="stat-card">
+        <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=issuance'">
             <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-2xl">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
@@ -49,7 +49,7 @@ foreach ($inventory as $batch) {
             <h3 class="text-3xl font-bold text-slate-900 dark:text-white mt-1"><?php echo $pendingIssuanceCount; ?></h3>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=receiving'">
             <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-600 dark:text-cyan-400 rounded-2xl">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -60,7 +60,7 @@ foreach ($inventory as $batch) {
             <h3 class="text-3xl font-bold text-slate-900 dark:text-white mt-1"><?php echo $pendingReceivingCount; ?></h3>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=inventory'">
             <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-2xl">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>

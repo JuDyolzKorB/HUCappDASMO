@@ -50,11 +50,11 @@ $menuItems = [
             </div>
         </div>
 
-        <a href="index.php?page=logout" class="group flex items-center px-4 py-2.5 text-sm font-bold text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all duration-200">
+        <button x-data @click="$dispatch('open-logout-modal')" class="w-full group flex items-center px-4 py-2.5 text-sm font-bold text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all duration-200">
             <span class="mr-3 text-slate-500 group-hover:text-red-400">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
             </span>
             Sign Out
-        </a>
+        </button>
     </div>
 </aside>

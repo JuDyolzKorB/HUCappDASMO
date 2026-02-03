@@ -32,6 +32,18 @@ If you have existing data in JSON files:
 2. The migration will run automatically and show progress
 3. Review the results to ensure all data was migrated successfully
 
+## Step 3a: Import Initial Constants Data (Optional)
+
+If you previously used `constants.ts` and want to populate the database with that initial data:
+
+1. Open **phpMyAdmin**
+2. Select your database `hucappdb`
+3. Click **Import**
+4. Select `database/migrate_constants.sql`
+5. Click **Go** to run the migration.
+   *Note: This script will create the `Notifications` table and populate various tables with initial demo data.*
+
+
 ## Step 4: Test the Application
 
 1. Navigate to your application: `http://localhost/HUCappDASMO`

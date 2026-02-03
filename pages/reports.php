@@ -1,7 +1,18 @@
 <?php
 // Load persistent reports history
 $reports = get_data('reports');
+$items = get_data('items');
+$pos = get_data('purchase_orders');
+$completed_pos = array_filter($pos, function($po) {
+    return $po['StatusType'] === 'Completed' || $po['StatusType'] === 'Approved'; // Assuming Approved/Completed are valid for receipt
+});
+
+// Format for JS
+$jsItems = array_map(function($i) { return ['id' => $i['ItemID'], 'label' => $i['ItemName']]; }, $items);
+$jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PONumber'] . ' (' . $p['POID'] . ')']; }, $completed_pos);
 ?>
+
+
 
 <div class="animate-fade-in space-y-6" x-data="reportsComponent()">
     <!-- Consolidated Header: Title & Tab Navigation -->
@@ -39,7 +50,6 @@ $reports = get_data('reports');
                         <select id="reportType" name="reportType" x-model="reportType" class="form-select w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl py-3 text-sm font-medium">
                             <option value="inventory_valuation">Inventory Valuation</option>
                             <option value="receipt_confirmation">Receipt Confirmation</option>
-                            <option value="stock_card">Stock Card & Ledger</option>
                         </select>
                     </div>
 
@@ -138,16 +148,10 @@ function reportsComponent() {
     return {
         activeTab: 'generate',
         reportType: 'inventory_valuation',
-        completedPOs: [
-            { id: 'PO-230003', label: 'PO-230003 - MedSupply Inc.' },
-            { id: 'PO-230005', label: 'PO-230005 - PharmaLink Co.' }
-        ],
-        items: [
-            { id: 'ITM001', label: 'Paracetamol 500mg' },
-            { id: 'ITM002', label: 'Amoxicillin 250mg' },
-            { id: 'ITM003', label: 'Gauze Pads 4x4' }
-        ],
+        completedPOs: <?php echo json_encode(array_values($jsPOs)); ?>,
+        items: <?php echo json_encode(array_values($jsItems)); ?>,
         history: <?php echo json_encode($reports); ?>,
+        
         get offices() {
             if (this.reportType === 'inventory_valuation' || this.reportType === 'receipt_confirmation') {
                 return [{ id: 'accounting', name: 'Accounting Office' }];
@@ -165,56 +169,40 @@ function reportsComponent() {
                 { id: 'compliance', name: 'Compliance Office' }
             ];
         },
+
         viewReport(reportId) {
             const report = this.history.find(r => r.ReportID === reportId);
             if (report) window.renderReport(report);
         },
-        simulateGeneration(type, office, extraId = '') {
-            const mockReport = {
-                ReportID: 'REP-' + Math.floor(Math.random() * 90000000 + 10000000),
-                ReportType: type === 'receipt_confirmation' ? 'Receipt Confirmation' : (type === 'inventory_valuation' ? 'Inventory Valuation' : (type === 'stock_card' ? 'Stock Card & Ledger' : 'Report')),
-                GeneratedForOffice: office.charAt(0).toUpperCase() + office.slice(1),
-                GeneratedByFullName: 'Admin User',
-                GeneratedDate: new Date().toLocaleString(),
-                data: type === 'receipt_confirmation' ? {
-                    poNumber: extraId || 'PO-230003',
-                    supplierName: 'MedSupply Inc.',
-                    poDate: '9/15/2023',
-                    receivedDate: '9/20/2023, 6:00:00 PM',
-                    receivedBy: 'Warehouse Staff',
-                    itemName: 'Amoxicillin 250mg',
-                    quantityOrdered: 1500,
-                    quantityReceived: 1500
-                } : (type === 'inventory_valuation' ? [
-                    { itemName: 'Paracetamol 500mq', totalQuantity: 7500, averageCost: 0.10, totalValue: 750.00 },
-                    { itemName: 'Amoxicillin 250mg', totalQuantity: 2700, averageCost: 0.23, totalValue: 621.00 },
-                    { itemName: 'Gauze Pads 4x4', totalQuantity: 8000, averageCost: 1.50, totalValue: 12000.00 },
-                    { itemName: 'Salbutamol Nebule', totalQuantity: 150, averageCost: 2.10, totalValue: 315.00 },
-                    { itemName: 'Losartan 50mg', totalQuantity: 2500, averageCost: 0.50, totalValue: 1250.00 },
-                    { itemName: 'Antiseptic Solution 500ml', totalQuantity: 500, averageCost: 3.00, totalValue: 1500.00 }
-                ] : (type === 'stock_card' ? {
-                    itemName: extraId === 'ITM001' ? 'Paracetamol 500mg' : (extraId === 'ITM002' ? 'Amoxicillin 250mg' : 'Gauze Pads 4x4'),
-                    itemType: 'Tablet',
-                    currentBalance: 7500,
-                    batches: [
-                        { batchId: 'BATCH-2301', quantity: 4500, expiry: '12/2025', cost: 0.10 },
-                        { batchId: 'BATCH-2304', quantity: 3000, expiry: '06/2026', cost: 0.10 }
-                    ],
-                    transactions: [
-                        { date: '01/10/2023', type: 'Initial Stock', ref: 'System Migration', batch: 'BATCH-2301', in: 5000, out: 0, balance: 5000 },
-                        { date: '01/15/2023', type: 'Issuance', ref: 'Health Center Alpha', batch: 'BATCH-2301', in: 0, out: 500, balance: 4500 },
-                        { date: '01/20/2023', type: 'Receiving', ref: 'PO-230003', batch: 'BATCH-2304', in: 3000, out: 0, balance: 7500 }
-                    ]
-                } : {}))
-            };
-            this.history.unshift(mockReport);
-            window.renderReport(mockReport);
-            
-            // Persistent Save
+
+        async generateReport(type, office, extraId = '') {
             const formData = new FormData();
-            formData.append('action', 'save_report');
-            formData.append('report', JSON.stringify(mockReport));
-            fetch('api.php', { method: 'POST', body: formData });
+            formData.append('action', 'generate_report');
+            formData.append('reportType', type);
+            formData.append('forOffice', office);
+            if (type === 'receipt_confirmation') formData.append('poNumber', extraId);
+            if (type === 'stock_card') formData.append('itemSelect', extraId);
+            
+            try {
+                const response = await fetch('api.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.history.unshift(result.report);
+                    window.renderReport(result.report);
+                    this.activeTab = 'history'; // Switch to history to see it
+                } else {
+                    alert('Failed to generate report: ' + (result.message || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error(e);
+                alert('An error occurred while generating the report.');
+            }
+        },
+        
+        // Alias for the form submit
+        simulateGeneration(type, office, extraId) {
+            this.generateReport(type, office, extraId);
         }
     };
 }
