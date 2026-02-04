@@ -13,7 +13,7 @@ $itemsData = get_data('items');
 // Find PO
 $purchaseOrder = null;
 foreach ($purchaseOrders as $po) {
-    if ($po['POID'] === $poid) {
+    if ($po['POID'] == $poid) {
         $purchaseOrder = $po;
         break;
     }
@@ -26,7 +26,7 @@ if (!$purchaseOrder) {
 
 function getItemNameById($id, $itemsData) {
     foreach ($itemsData as $i) {
-        if ($i['ItemID'] === $id) return $i['ItemName'];
+        if ($i['ItemID'] == $id) return $i['ItemName'];
     }
     return $id;
 }
@@ -79,13 +79,13 @@ function getItemNameById($id, $itemsData) {
                             <td class="px-4 py-3 text-center">
                                 <div class="relative rounded-md shadow-sm max-w-[100px] mx-auto">
                                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                        <span class="text-gray-500 sm:text-sm">₱</span>
                                     </div>
                                     <input type="number" step="0.01" name="items[<?php echo $index; ?>][unitCost]" placeholder="0.00" required class="block w-full rounded-md border-slate-300 pl-7 focus:ring-primary focus:border-primary sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white text-right">
                                 </div>
                             </td>
-                             <td class="px-4 py-3">
-                                <input type="date" name="items[<?php echo $index; ?>][expiryDate]" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                            <td class="px-4 py-3">
+                                <input type="date" name="items[<?php echo $index; ?>][expiryDate]" value="<?php echo $item['ExpiryDate'] ?? ''; ?>" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                             </td>
                         </tr>
                         <?php endforeach; ?>

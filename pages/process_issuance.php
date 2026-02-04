@@ -14,7 +14,7 @@ $items = get_data('items');
 // Find Requisition
 $requisition = null;
 foreach ($requisitions as $r) {
-    if ($r['RequisitionID'] === $reqId) {
+    if ($r['RequisitionID'] == $reqId) {
         $requisition = $r;
         break;
     }
@@ -36,7 +36,7 @@ foreach ($requisition['RequisitionItems'] as $reqItem) {
     // Find matching batches, sorted by ExpiryDate
     $batches = [];
     foreach ($inventory as $batch) {
-        if ($batch['ItemID'] === $itemId && $batch['QuantityOnHand'] > 0) {
+        if ($batch['ItemID'] == $itemId && $batch['QuantityOnHand'] > 0) {
             $batches[] = $batch;
         }
     }
@@ -78,7 +78,7 @@ foreach ($requisition['RequisitionItems'] as $reqItem) {
 
 function getItemName($id, $items) {
     foreach ($items as $i) {
-        if ($i['ItemID'] === $id) return $i['ItemName'];
+        if ($i['ItemID'] == $id) return $i['ItemName'];
     }
     return $id;
 }

@@ -1,7 +1,7 @@
 <?php
 // components/add_purchase_order_modal.php
 $suppliers = get_data('suppliers');
-$healthCenters = get_data('health_centers');
+$warehouses = get_data('warehouses');
 $items = get_data('items');
 ?>
 
@@ -21,14 +21,22 @@ $items = get_data('items');
         <form id="addPOForm" class="p-6 space-y-5">
             <input type="hidden" name="action" value="create_purchase_order">
             
-            <!-- Supplier & Health Center Grid -->
+            <!-- Supplier & Warehouse Grid -->
             <div class="grid grid-cols-2 gap-4">
                 <!-- Supplier -->
                 <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poSupplier">
-                        Supplier
-                    </label>
-                    <div class="relative">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poSupplier">
+                            Supplier
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="manualSupplierToggle" class="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" onchange="toggleSupplierInput(this)">
+                            <label for="manualSupplierToggle" class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer">Enter Manually</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Select Dropdown -->
+                    <div class="relative" id="supplierSelectContainer">
                         <select 
                             class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
                             id="poSupplier" 
@@ -45,22 +53,38 @@ $items = get_data('items');
                             </svg>
                         </div>
                     </div>
+
+                    <!-- Manual Input Fields -->
+                    <div id="supplierManualContainer" class="hidden space-y-2">
+                        <input 
+                            type="text" 
+                            name="supplierName" 
+                            id="poSupplierName"
+                            placeholder="Supplier Name" 
+                            class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all">
+                        <textarea 
+                            name="supplierAddress" 
+                            id="poSupplierAddress"
+                            placeholder="Supplier Address" 
+                            rows="2"
+                            class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all"></textarea>
+                    </div>
                 </div>
                 
-                <!-- Health Center -->
+                <!-- Warehouse -->
                 <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poHealthCenter">
-                        Health Center
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poWarehouse">
+                        Warehouse
                     </label>
                     <div class="relative">
                         <select 
                             class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
-                            id="poHealthCenter" 
-                            name="healthCenterId" 
+                            id="poWarehouse" 
+                            name="warehouseId" 
                             required>
-                            <option value="">Select health center...</option>
-                            <?php foreach ($healthCenters as $hc): ?>
-                                <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
+                            <option value="">Select warehouse...</option>
+                            <?php foreach ($warehouses as $wh): ?>
+                                <option value="<?php echo $wh['WarehouseID']; ?>"><?php echo $wh['WarehouseName']; ?></option>
                             <?php endforeach; ?>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -88,7 +112,7 @@ $items = get_data('items');
                                 required>
                                 <option value="">Select item...</option>
                                 <?php foreach ($items as $item): ?>
-                                    <option value="<?php echo $item['ItemID']; ?>"><?php echo $item['ItemName']; ?></option>
+                                    <option value="<?php echo $item['ItemID']; ?>"><?php echo $item['ItemID'] . ' - ' . $item['ItemName']; ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -104,6 +128,11 @@ $items = get_data('items');
                             min="1" 
                             class="w-24 px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
                             required>
+                        <input 
+                            type="date" 
+                            name="expiryDates[]" 
+                            placeholder="Expiry Date" 
+                            class="w-36 px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all">
                         <button 
                             type="button" 
                             onclick="removeItemRow(this)" 
@@ -146,9 +175,38 @@ $items = get_data('items');
 </div>
 
 <script>
+function toggleSupplierInput(checkbox) {
+    const selectContainer = document.getElementById('supplierSelectContainer');
+    const manualContainer = document.getElementById('supplierManualContainer');
+    const select = document.getElementById('poSupplier');
+    const nameInput = document.getElementById('poSupplierName');
+    
+    if (checkbox.checked) {
+        selectContainer.classList.add('hidden');
+        manualContainer.classList.remove('hidden');
+        select.removeAttribute('required');
+        select.value = '';
+        nameInput.setAttribute('required', 'required');
+    } else {
+        selectContainer.classList.remove('hidden');
+        manualContainer.classList.add('hidden');
+        select.setAttribute('required', 'required');
+        nameInput.removeAttribute('required');
+        nameInput.value = '';
+        document.getElementById('poSupplierAddress').value = '';
+    }
+}
+
 function closeAddPOModal() {
     document.getElementById('addPOModal').classList.add('hidden');
     document.getElementById('addPOForm').reset();
+    
+    // Reset manual toggle
+    const toggle = document.getElementById('manualSupplierToggle');
+    if (toggle && toggle.checked) {
+        toggle.click(); // Uncheck and trigger handler
+    }
+    
     // Reset to single item row
     const container = document.getElementById('poItemsContainer');
     const rows = container.querySelectorAll('.po-item-row');

@@ -9,6 +9,18 @@ $adjustment_logs = get_data('adjustment_logs') ?? []; // Placeholder for history
 $completedRequisitions = array_filter($requisitions, function($req) {
     return $req['StatusType'] === 'Completed';
 });
+
+// Handle pre-selected batch from URL
+$preSelectedBatch = $_GET['batch'] ?? '';
+$preSelectedItem = '';
+if ($preSelectedBatch) {
+    foreach ($inventory as $b) {
+        if ($b['BatchID'] == $preSelectedBatch) {
+            $preSelectedItem = $b['ItemID'];
+            break;
+        }
+    }
+}
 ?>
 
 <div class="space-y-6" x-data="adjustmentFlow()">
@@ -210,7 +222,22 @@ function adjustmentFlow() {
         
         updateBatches() {
             this.selectedBatch = '';
-            this.filteredBatches = this.inventory.filter(b => b.ItemID === this.selectedItem);
+            // Use == for type-insensitive comparison or cast both to string
+            this.filteredBatches = this.inventory.filter(b => b.ItemID == this.selectedItem);
+        },
+
+        init() {
+            // Handle pre-selected data from URL
+            const urlBatch = '<?php echo $preSelectedBatch; ?>';
+            const urlItem = '<?php echo $preSelectedItem; ?>';
+            
+            if (urlItem) {
+                this.selectedItem = urlItem;
+                this.updateBatches();
+                if (urlBatch) {
+                    this.selectedBatch = urlBatch;
+                }
+            }
         },
         
         viewAdjustment(adjustment) {

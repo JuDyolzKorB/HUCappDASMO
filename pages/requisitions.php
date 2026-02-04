@@ -12,9 +12,11 @@ $requisitions = get_data('requisitions');
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Request Queue</h2>
             <p class="text-slate-500 font-medium text-sm">Monitor and manage all item requests from health centers and departments.</p>
         </div>
+        <?php if ($userRole === 'Administrator' || $userRole === 'Health Center Staff'): ?>
         <button onclick="openRequisitionFormModal()" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
             + New Requisition
         </button>
+        <?php endif; ?>
     </div>
 
     <!-- Requisitions Filter/Table -->
@@ -48,7 +50,7 @@ $requisitions = get_data('requisitions');
                             // Enrich Items with Names for JS
                             foreach ($r['RequisitionItems'] as &$ri) {
                                 foreach ($allItems as $i) {
-                                    if ($i['ItemID'] === $ri['ItemID']) {
+                                    if ($i['ItemID'] == $ri['ItemID']) {
                                         $ri['ItemName'] = $i['ItemName'];
                                         break;
                                     }

@@ -21,6 +21,7 @@ $purchaseOrders = get_data('purchase_orders');
                     <tr>
                          <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">PO No.</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Supplier</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Warehouse</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Date</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Status</th>
                          <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Actions</th>
@@ -29,13 +30,13 @@ $purchaseOrders = get_data('purchase_orders');
                 <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                      <?php if (empty($purchaseOrders)): ?>
                     <tr>
-                        <td colspan="5" class="px-6 py-4 text-center text-sm text-slate-500">No purchase orders found.</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-slate-500">No purchase orders found.</td>
                     </tr>
                     <?php else: ?>
                         <?php 
                         $allItems = get_data('items');
                         $suppliers = get_data('suppliers');
-                        $healthCenters = get_data('health_centers');
+                        $warehouses = get_data('warehouses');
                         
                         foreach ($purchaseOrders as $po): 
                             $statusColor = 'bg-slate-100 text-slate-800';
@@ -46,18 +47,18 @@ $purchaseOrders = get_data('purchase_orders');
                             // Ensure SupplierName is populated
                             if (empty($po['SupplierName']) && !empty($po['SupplierID'])) {
                                 foreach ($suppliers as $s) {
-                                    if ($s['SupplierID'] === $po['SupplierID']) {
+                                    if ($s['SupplierID'] == $po['SupplierID']) {
                                         $po['SupplierName'] = $s['Name'];
                                         break;
                                     }
                                 }
                             }
                             
-                            // Ensure HealthCenterName is populated
-                            if (empty($po['HealthCenterName']) && !empty($po['HealthCenterID'])) {
-                                foreach ($healthCenters as $hc) {
-                                    if ($hc['HealthCenterID'] === $po['HealthCenterID']) {
-                                        $po['HealthCenterName'] = $hc['Name'];
+                            // Ensure WarehouseName is populated
+                            if (empty($po['WarehouseName']) && !empty($po['WarehouseID'])) {
+                                foreach ($warehouses as $wh) {
+                                    if ($wh['WarehouseID'] == $po['WarehouseID']) {
+                                        $po['WarehouseName'] = $wh['WarehouseName'];
                                         break;
                                     }
                                 }
@@ -67,7 +68,7 @@ $purchaseOrders = get_data('purchase_orders');
                             if (isset($po['PurchaseOrderItems']) && is_array($po['PurchaseOrderItems'])) {
                                 foreach ($po['PurchaseOrderItems'] as &$poi) {
                                     foreach ($allItems as $i) {
-                                        if ($i['ItemID'] === $poi['ItemID']) {
+                                        if ($i['ItemID'] == $poi['ItemID']) {
                                             $poi['ItemName'] = $i['ItemName'];
                                             break;
                                         }
@@ -79,6 +80,7 @@ $purchaseOrders = get_data('purchase_orders');
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $po['PONumber']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['SupplierName']; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['WarehouseName'] ?? 'Main Warehouse'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($po['PODate'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $statusColor; ?>">

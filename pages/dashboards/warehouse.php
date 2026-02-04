@@ -29,10 +29,12 @@ foreach ($inventory as $batch) {
             <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">Operational command for inventory and logistics.</p>
         </div>
         <div class="flex items-center gap-3">
+             <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist'): ?>
              <a href="index.php?page=purchase-orders" class="btn btn-primary px-6">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 New Purchase Order
             </a>
+            <?php endif; ?>
         </div>
     </div>
 

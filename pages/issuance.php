@@ -8,7 +8,7 @@ function getItemName($itemId, $items) {
     global $db;
     $items = get_data('items');
     foreach ($items as $item) {
-        if ($item['ItemID'] === $itemId) return $item['ItemName'];
+        if ($item['ItemID'] == $itemId) return $item['ItemName'];
     }
     return $itemId;
 }
@@ -104,7 +104,7 @@ $tab = $_GET['tab'] ?? 'request';
                             // Enrichment
                             $issuedByName = 'System/Unknown';
                             foreach ($users as $u) {
-                                if ($u['UserID'] === ($iss['IssuedByUserID'] ?? '')) {
+                                if ($u['UserID'] == ($iss['IssuedByUserID'] ?? '')) {
                                     $issuedByName = $u['FirstName'] . ' ' . $u['LastName'];
                                     break;
                                 }
@@ -112,7 +112,7 @@ $tab = $_GET['tab'] ?? 'request';
                             
                             $reqNum = $iss['RequisitionID'] ?? 'N/A';
                             foreach ($reqs as $r) {
-                                if ($r['RequisitionID'] === $iss['RequisitionID']) {
+                                if ($r['RequisitionID'] == $iss['RequisitionID']) {
                                     $reqNum = $r['RequisitionNumber'] ?? 'N/A';
                                     break;
                                 }

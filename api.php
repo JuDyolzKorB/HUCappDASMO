@@ -58,19 +58,12 @@ try {
         $role = $_POST['role'] ?? 'Health Center User';
 
         global $db;
-        // Check if username exists using direct DB lookup
         if ($db->find('users', 'Username', $username)) {
             echo json_encode(['success' => false, 'message' => 'Username already exists']);
             exit;
         }
 
-        // Generate ID (Simple increment)
-        $count = $db->fetchOne("SELECT COUNT(*) as c FROM Users");
-        $newUserId = (int)($count['c'] ?? 0) + 1;
-
-        // Create new user with HASHED password
         $newUser = [
-            'UserID' => $newUserId,
             'Username' => $username,
             'Password' => password_hash($password, PASSWORD_DEFAULT),
             'FirstName' => $firstName,
@@ -79,31 +72,48 @@ try {
             'Role' => $role
         ];
         
-        // Use save_data which handles the INSERT
         if (save_data('users', [$newUser])) {
-             log_security_event($newUser['UserID'], 'Signup', 'Success', 'New user registered');
+             // UserID is unknown here unless we fetch or refactor save_data to return it.
+             // For logs, we can just say 'New User'.
+             log_security_event('system', 'Signup', 'Success', "New user registered: $username");
              echo json_encode(['success' => true, 'redirect' => 'index.php?page=login']);
         } else {
              echo json_encode(['success' => false, 'message' => 'Failed to save user']);
         }
     } elseif ($action === 'add_warehouse') {
-        $warehouses = get_data('warehouses');
-        
         $newWarehouse = [
-            'WarehouseID' => 'W' . str_pad(count($warehouses) + 1, 2, '0', STR_PAD_LEFT),
             'WarehouseName' => $_POST['warehouseName'] ?? '',
             'Location' => $_POST['location'] ?? '',
             'WarehouseType' => $_POST['warehouseType'] ?? ''
         ];
         
-        $warehouses[] = $newWarehouse;
-        
-        if (save_data('warehouses', $warehouses)) {
-            log_security_event($_SESSION['user']['UserID'], 'Warehouse', 'Success', 'Created warehouse ' . $newWarehouse['WarehouseID']);
+        if (save_data('warehouses', [$newWarehouse])) {
+            log_security_event($_SESSION['user']['UserID'], 'Warehouse', 'Success', 'Created warehouse ' . $newWarehouse['WarehouseName']);
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save warehouse']);
         }
+
+    } elseif ($action === 'add_supplier') {
+        $name = $_POST['name'] ?? '';
+        if (empty($name)) {
+            echo json_encode(['success' => false, 'message' => 'Supplier name is required']);
+            exit;
+        }
+
+        $newSupplier = [
+            'Name' => $name,
+            'Address' => $_POST['address'] ?? '',
+            'ContactInfo' => $_POST['contactInfo'] ?? ''
+        ];
+        
+        if (save_data('suppliers', [$newSupplier])) {
+            log_security_event($_SESSION['user']['UserID'], 'Supplier', 'Success', 'Created supplier ' . $name);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save supplier']);
+        }
+
     } elseif ($action === 'process_issuance') {
         $reqId = $_POST['requisitionId'] ?? '';
         $allocationPlan = json_decode($_POST['allocationPlan'] ?? '[]', true);
@@ -114,26 +124,9 @@ try {
         }
         
         $inventory = get_data('inventory');
-        $issuances = get_data('issuances');
-        $requisitions = get_data('requisitions');
+        $issuances = []; // To be saved
         
-        // Find Requisition
-        $req = null;
-        foreach($requisitions as &$r) {
-            if($r['RequisitionID'] === $reqId) {
-                $req = &$r;
-                break;
-            }
-        }
-        
-        if (!$req) {
-             echo json_encode(['success' => false, 'message' => 'Requisition not found']);
-             exit;
-        }
-        
-        $issuanceId = 'ISS-' . date('Ymd') . '-' . rand(1000, 9999);
         $newIssuance = [
-            'IssuanceID' => $issuanceId,
             'RequisitionID' => $reqId,
             'DateIssued' => date('Y-m-d H:i:s'),
             'IssuedByUserID' => $_SESSION['user']['UserID'],
@@ -149,15 +142,13 @@ try {
 
                  if (!$batchId || $qtyToIssue <= 0) continue;
 
-                 // Deduct from inventory
+                 // Deduct from inventory (in memory, then saved)
                  foreach ($inventory as &$batch) {
-                     if ($batch['BatchID'] === $batchId) {
+                     if ($batch['BatchID'] == $batchId) { // Loose comparison as ID might be int or string from JSON
                          $batch['QuantityOnHand'] -= $qtyToIssue;
                          $batch['QuantityReleased'] = ($batch['QuantityReleased'] ?? 0) + $qtyToIssue;
                          
                          $newIssuance['IssuedItems'][] = [
-                             'IssuanceItemID' => 'II-' . rand(10000, 99999),
-                             'ItemID' => $batch['ItemID'],
                              'BatchID' => $batch['BatchID'],
                              'RequisitionItemID' => $planItem['reqItemId'] ?? null,
                              'QuantityIssued' => $qtyToIssue
@@ -169,35 +160,29 @@ try {
         }
         
         $issuances[] = $newIssuance;
-        $req['StatusType'] = 'Completed'; // Mark requisition as completed
         
-        $userObj = $_SESSION['user'];
-        $userName = $userObj['FirstName'] . ' ' . $userObj['LastName'];
+        // Update Requisition Status
+        $requisitions = get_data('requisitions');
+        foreach ($requisitions as &$r) {
+            if ($r['RequisitionID'] == $reqId) {
+                $r['StatusType'] = 'Completed';
+                break;
+            }
+        }
         
-        // Add additional metadata to issuance for history
-        $newIssuance['IssuedByFullName'] = $userName;
-        $newIssuance['StatusType'] = 'Issued';
-        
-        save_data('inventory', $inventory);
-        save_data('issuances', $issuances);
-        save_data('requisitions', $requisitions);
-        
-        logTransaction('Issued Items', 'Requisition', $reqId);
-        
-        echo json_encode(['success' => true]);
+        if (save_data('inventory', $inventory) && save_data('issuances', $issuances) && save_data('requisitions', $requisitions)) {
+             logTransaction('Issued Items', 'Requisition', $reqId);
+             echo json_encode(['success' => true]);
+        } else {
+             echo json_encode(['success' => false, 'message' => 'Failed to process issuance']);
+        }
 
     } elseif ($action === 'receive_items') {
         $poid = $_POST['poid'] ?? $_POST['poId'] ?? ''; 
         $items = $_POST['items'] ?? []; 
         
-        $inventory = get_data('inventory');
-        $purchaseOrders = get_data('purchase_orders');
-        $receivings = get_data('receivings');
-        
-        // Create new receiving record
-        $receivingId = 'RCV-' . date('Ymd') . '-' . rand(100, 999);
+        $receivings = [];
         $newReceiving = [
-            'ReceivingID' => $receivingId,
             'POID' => $poid,
             'ReceivedDate' => date('Y-m-d H:i:s'),
             'UserID' => $_SESSION['user']['UserID'],
@@ -207,43 +192,29 @@ try {
         foreach ($items as $item) {
             $qtyReceived = (float)$item['quantityReceived'];
             if ($qtyReceived > 0) {
-                // Add to Inventory Batches
-                // Generate Incremental Batch ID
-                $maxId = 0;
-                foreach ($inventory as $b) {
-                    if (preg_match('/BATCH-(\d+)/', $b['BatchID'], $matches)) {
-                        $num = (int)$matches[1];
-                        if ($num > $maxId) $maxId = $num;
-                    }
-                }
-                $batchId = 'BATCH-' . str_pad($maxId + 1, 5, '0', STR_PAD_LEFT);
-
-                $newBatch = [
-                    'BatchID' => $batchId,
+                $newReceiving['ReceivedItems'][] = [
                     'ItemID' => $item['itemId'],
                     'QuantityOnHand' => $qtyReceived,
-                    'ExpiryDate' => $item['expiryDate'],
+                    'ExpiryDate' => $item['expiryDate'], // Assuming expiry is passed from UI
                     'UnitCost' => (float)$item['unitCost'],
-                    'DateReceived' => date('Y-m-d'), // CRITICAL for FIFO
-                    'WarehouseID' => 'W01', // Default
-                    'QuantityReleased' => 0
+                    'DateReceived' => date('Y-m-d'),
+                    'WarehouseID' => 1 // Default warehouse
                 ];
-                $inventory[] = $newBatch;
-                $newReceiving['ReceivedItems'][] = $newBatch;
             }
         }
         
         $receivings[] = $newReceiving;
         
         // Update PO Status
+        $purchaseOrders = get_data('purchase_orders');
         foreach ($purchaseOrders as &$po) {
-            if ($po['POID'] === $poid) {
+            if ($po['POID'] == $poid) {
                 $po['StatusType'] = 'Completed'; 
                 break;
             }
         }
         
-        if (save_data('inventory', $inventory) && save_data('purchase_orders', $purchaseOrders) && save_data('receivings', $receivings)) {
+        if (save_data('purchase_orders', $purchaseOrders) && save_data('receivings', $receivings)) {
              log_security_event($_SESSION['user']['UserID'], 'Receiving', 'Success', "Received items for PO $poid");
              logTransaction('Received Items', 'Purchase Order', $poid);
              echo json_encode(['success' => true]);
@@ -253,209 +224,41 @@ try {
 
     } elseif ($action === 'create_requisition') {
         $healthCenterId = $_POST['healthCenterId'] ?? '';
-        $items = $_POST['items'] ?? []; // Array of items
+        $healthCenterName = $_POST['healthCenterName'] ?? '';
+        $healthCenterAddress = $_POST['healthCenterAddress'] ?? '';
+        $items = $_POST['items'] ?? []; 
         
-        // Lookup Health Center Name for denormalization (optional, but good for display)
-        $healthCenters = get_data('health_centers');
-        $hcName = 'Unknown';
-        foreach($healthCenters as $hc) {
-            if($hc['HealthCenterID'] === $healthCenterId) {
-                $hcName = $hc['Name'];
-                break;
-            }
-        }
-        
-        $reqId = 'REQ-' . date('Ymd') . '-' . rand(1000, 9999);
         $newReq = [
-            'RequisitionID' => $reqId,
-            'RequisitionNumber' => $reqId,
             'HealthCenterID' => $healthCenterId,
-            'HealthCenterName' => $hcName,
+            'HealthCenterName' => $healthCenterName,
+            'HealthCenterAddress' => $healthCenterAddress,
             'UserID' => $_SESSION['user']['UserID'],
-            'RequestedByFullName' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
-            'RequestedDate' => date('Y-m-d H:i:s'),
+            'RequestDate' => date('Y-m-d H:i:s'),
             'StatusType' => 'Pending',
-            'RequisitionItems' => [],
-            'ApprovalLogs' => []
+            'RequisitionItems' => []
         ];
         
-        $reqItems = [];
         foreach($items as $i) {
             if((int)$i['quantity'] > 0) {
-                $reqItems[] = [
-                    'RequisitionItemID' => 'RI-' . rand(10000,99999),
+                $newReq['RequisitionItems'][] = [
                     'ItemID' => $i['itemId'],
                     'QuantityRequested' => (int)$i['quantity']
                 ];
             }
         }
         
-        if (empty($reqItems)) {
+        if (empty($newReq['RequisitionItems'])) {
             echo json_encode(['success' => false, 'message' => 'No valid items requested']);
             exit;
         }
         
-        $newReq['RequisitionItems'] = $reqItems;
-        
-        $requisitions = get_data('requisitions');
-        $requisitions[] = $newReq;
-        
-        if (save_data('requisitions', $requisitions)) {
-            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Created requisition $reqId");
-            logTransaction('Created Requisition', 'Requisition', $reqId);
+        if (save_data('requisitions', [$newReq])) {
+            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Created requisition");
             echo json_encode(['success' => true]);
         } else {
              echo json_encode(['success' => false, 'message' => 'Failed to save requisition']);
         }
-    } elseif ($action === 'update_requisition_status') {
-        $reqId = $_POST['requisitionId'] ?? '';
-        $status = $_POST['status'] ?? ''; // Approved or Rejected
-        
-        $requisitions = get_data('requisitions');
-        $updated = false;
-        
-        foreach ($requisitions as &$r) {
-            if ($r['RequisitionID'] === $reqId) {
-                $r['StatusType'] = $status;
-                
-                // Add Log
-                $r['ApprovalLogs'] = $r['ApprovalLogs'] ?? [];
-                $r['ApprovalLogs'][] = [
-                    'ApprovalLogID' => 'AL-' . time(),
-                    'RequisitionID' => $reqId,
-                    'UserID' => $_SESSION['user']['UserID'],
-                    'ApproverFullName' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
-                    'Decision' => $status,
-                    'DecisionDate' => date('Y-m-d H:i:s')
-                ];
-                $updated = true;
-                break;
-            }
-        }
-        
-        if ($updated) {
-            if (save_data('requisitions', $requisitions)) {
-                logTransaction($status . ' Requisition', 'Requisition', $reqId);
-                echo json_encode(['success' => true]);
-            } else {
-                 echo json_encode(['success' => false, 'message' => 'Failed to save updates']);
-            }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Requisition not found']);
-        }
-    } elseif ($action === 'update_po_status') {
-        $poId = $_POST['poId'] ?? '';
-        $status = $_POST['status'] ?? ''; 
-        
-        $purchaseOrders = get_data('purchase_orders');
-        $updated = false;
-        
-        foreach ($purchaseOrders as &$po) {
-            if ($po['POID'] === $poId) {
-                $po['StatusType'] = $status;
-                $updated = true;
-                break;
-            }
-        }
-        
-        if ($updated) {
-            if (save_data('purchase_orders', $purchaseOrders)) {
-                logTransaction($status . ' Purchase Order', 'Purchase Order', $poId);
-                echo json_encode(['success' => true]);
-            } else {
-                 echo json_encode(['success' => false, 'message' => 'Failed to save updates']);
-            }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Purchase Order not found']);
-        }
-    } elseif ($action === 'update_profile') {
-        if (!isLoggedIn()) {
-            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-            exit;
-        }
-        
-        $firstName = $_POST['firstName'] ?? '';
-        $middleName = $_POST['middleName'] ?? '';
-        $lastName = $_POST['lastName'] ?? '';
-        $currUser = $_SESSION['user'];
-        
-        $users = get_data('users');
-        $updated = false;
-        
-        foreach ($users as &$u) {
-            if ($u['UserID'] == $currUser['UserID']) {
-                $u['FirstName'] = $firstName;
-                $u['MiddleName'] = $middleName;
-                $u['LastName'] = $lastName;
-                // Update session
-                $_SESSION['user'] = $u;
-                $updated = true;
-                break;
-            }
-        }
-        
-        if ($updated) {
-            if (save_data('users', $users)) {
-                logTransaction('Updated Profile', 'User', $currUser['UserID']);
-                echo json_encode(['success' => true]);
-            } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to save user data']);
-            }
-        } else {
-            echo json_encode(['success' => false, 'message' => 'User not found']);
-        }
-    } elseif ($action === 'update_password') {
-        if (!isLoggedIn()) {
-            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-            exit;
-        }
-        
-        $currentPassword = $_POST['currentPassword'] ?? '';
-        $newPassword = $_POST['newPassword'] ?? '';
-        $currUser = $_SESSION['user'];
-        
-        $users = get_data('users');
-        $updated = false;
-        
-        foreach ($users as &$u) {
-            if ($u['UserID'] == $currUser['UserID']) {
-                // Verify current password
-                if (!password_verify($currentPassword, $u['Password']) && $u['Password'] !== $currentPassword) {
-                    echo json_encode(['success' => false, 'message' => 'Incorrect current password']);
-                    exit;
-                }
-                
-                // Update password (hashed)
-                $u['Password'] = password_hash($newPassword, PASSWORD_DEFAULT);
-                $_SESSION['user'] = $u; // Optional, sessions usually don't need the password
-                $updated = true;
-                break;
-            }
-        }
-        
-        if ($updated) {
-            if (save_data('users', $users)) {
-                logTransaction('Changed Password', 'User', $currUser['UserID']);
-                echo json_encode(['success' => true]);
-            } else {
-                // Return detailed debug info
-                $debug = [
-                    'user_id' => $currUser['UserID'],
-                    'db_error_check_logs' => 'Check PHP error log for "Execute Error"'
-                ];
-                dump_debug_info();
-                echo json_encode(['success' => false, 'message' => 'Database save failed. Debug: ' . json_encode($debug)]);
-            }
-        } else {
-            // Debug info for "User not found"
-             $debug = [
-                'session_user_id' => $currUser['UserID'],
-                'session_user_id_type' => gettype($currUser['UserID']),
-                'users_count' => count($users)
-            ];
-            dump_debug_info();
-            echo json_encode(['success' => false, 'message' => 'User not found in user list. Debug: ' . json_encode($debug)]);
-        }
+
     } elseif ($action === 'create_purchase_order') {
         // Validate user is logged in
         if (!isset($_SESSION['user'])) {
@@ -464,13 +267,16 @@ try {
         }
         
         $supplierId = $_POST['supplierId'] ?? '';
-        $healthCenterId = $_POST['healthCenterId'] ?? '';
+        $warehouseId = $_POST['warehouseId'] ?? ''; // Expecting warehouseId now
         $items = $_POST['items'] ?? [];
         $quantities = $_POST['quantities'] ?? [];
+        $expiryDates = $_POST['expiryDates'] ?? [];
         
-        // Validate inputs
-        if (empty($supplierId)) {
-            echo json_encode(['success' => false, 'message' => 'Supplier is required']);
+        $supplierName = $_POST['supplierName'] ?? '';
+        $supplierAddress = $_POST['supplierAddress'] ?? '';
+
+        if (empty($supplierId) && empty($supplierName)) {
+            echo json_encode(['success' => false, 'message' => 'Supplier is required (Select one or enter name)']);
             exit;
         }
         
@@ -479,52 +285,15 @@ try {
             exit;
         }
         
-        // Load data
-        $purchaseOrders = get_data('purchase_orders');
-        $suppliers = get_data('suppliers');
-        $healthCenters = get_data('health_centers');
-        
-        // Find supplier name
-        $supplierName = '';
-        foreach ($suppliers as $supplier) {
-            if ($supplier['SupplierID'] === $supplierId) {
-                $supplierName = $supplier['Name'];
-                break;
-            }
-        }
-        
-        // Find health center name
-        $healthCenterName = '';
-        if (!empty($healthCenterId)) {
-            foreach ($healthCenters as $hc) {
-                if ($hc['HealthCenterID'] === $healthCenterId) {
-                    $healthCenterName = $hc['Name'];
-                    break;
-                }
-            }
-        }
-        
-        // Generate POID
-        $nextPoNum = count($purchaseOrders) + 1;
-        $poid = 'PO' . str_pad($nextPoNum, 3, '0', STR_PAD_LEFT);
-        
-        // Generate PO Number (format: PO-YYXXXX)
-        $year = date('y');
-        $poNumber = 'PO-' . $year . str_pad($nextPoNum, 4, '0', STR_PAD_LEFT);
-        
-        // Build Purchase Order Items
         $poItems = [];
-        $poItemCounter = 1;
         foreach ($items as $index => $itemId) {
             if (!empty($itemId) && !empty($quantities[$index]) && $quantities[$index] > 0) {
-                $poItemId = 'POI' . str_pad(count($purchaseOrders) * 10 + $poItemCounter, 3, '0', STR_PAD_LEFT);
                 $poItems[] = [
-                    'POItemID' => $poItemId,
-                    'POID' => $poid,
                     'ItemID' => $itemId,
-                    'QuantityOrdered' => (int)$quantities[$index]
+                    'QuantityOrdered' => (int)$quantities[$index],
+                    'UnitCost' => 0, // Should be filled if known
+                    'ExpiryDate' => !empty($expiryDates[$index]) ? $expiryDates[$index] : null
                 ];
-                $poItemCounter++;
             }
         }
         
@@ -533,52 +302,83 @@ try {
             exit;
         }
         
-        // Create new Purchase Order
         $newPO = [
-            'POID' => $poid,
             'UserID' => $_SESSION['user']['UserID'],
             'SupplierID' => $supplierId,
-            'PONumber' => $poNumber,
+            'SupplierName' => $supplierName,
+            'SupplierAddress' => $supplierAddress,
+            'WarehouseID' => !empty($warehouseId) ? $warehouseId : 1, // Default to 1 if empty
             'PODate' => date('Y-m-d\TH:i:s\Z'),
             'StatusType' => 'Pending',
-            'SupplierName' => $supplierName,
-            'PurchaseOrderItems' => $poItems,
-            'ApprovalLogs' => []
+            'PurchaseOrderItems' => $poItems
         ];
         
-        // Add health center if provided
-        if (!empty($healthCenterId)) {
-            $newPO['HealthCenterID'] = $healthCenterId;
-            $newPO['HealthCenterName'] = $healthCenterName;
-        }
-        
-        // Save to database
-        $purchaseOrders[] = $newPO;
-        
-        if (save_data('purchase_orders', $purchaseOrders)) {
-            // Log transaction
-            logTransaction('Created Purchase Order', 'Purchase Order', $poid);
-            log_security_event($_SESSION['user']['UserID'], 'Purchase Order', 'Success', 'Created PO ' . $poNumber);
-            
+        if (save_data('purchase_orders', [$newPO])) {
+            log_security_event($_SESSION['user']['UserID'], 'Purchase Order', 'Success', 'Created New PO');
             echo json_encode([
                 'success' => true,
-                'message' => 'Purchase order created successfully',
-                'poNumber' => $poNumber
+                'message' => 'Purchase order created successfully'
             ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save purchase order']);
         }
+
+    } elseif ($action === 'update_po_status') {
+        $poId = $_POST['poId'] ?? '';
+        $status = $_POST['status'] ?? '';
+        
+        if (!$poId || !$status) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+            exit;
+        }
+        
+        $allowed = ['Approved', 'Rejected', 'Pending', 'Completed'];
+        if (!in_array($status, $allowed)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid status']);
+            exit;
+        }
+        
+        global $db;
+        $res = $db->execute("UPDATE PurchaseOrder SET StatusType = ? WHERE POID = ?", [$status, $poId]);
+        
+        if ($res) {
+            log_security_event($_SESSION['user']['UserID'], 'Purchase Order', 'Success', "Updated PO $poId status to $status");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
+    } elseif ($action === 'update_requisition_status') {
+        $reqId = $_POST['requisitionId'] ?? '';
+        $status = $_POST['status'] ?? '';
+        
+        if (!$reqId || !$status) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+            exit;
+        }
+        
+        $allowed = ['Approved', 'Rejected', 'Pending', 'Completed'];
+        if (!in_array($status, $allowed)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid status']);
+            exit;
+        }
+        
+        global $db;
+        $res = $db->execute("UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?", [$status, $reqId]);
+        
+        if ($res) {
+            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Updated Requisition $reqId status to $status");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
     } elseif ($action === 'generate_report') {
         $reportType = $_POST['reportType'] ?? '';
         $office = $_POST['forOffice'] ?? '';
         $extraId = $_POST['poNumber'] ?? $_POST['itemSelect'] ?? ''; // PO ID or Item ID depending on type
         
-        $reportId = 'REP-' . date('Ymd') . '-' . rand(1000, 9999);
-        $generatedDate = date('Y-m-d H:i:s');
-        $reportData = []; // This will be stored maybe in a separate table or file, or just returned for now. 
-        // Note: The schema only has Report table metadata. Detailed report content requires a separate store (like ReportData table or JSON column).
-        // Since schema is locked, we'll focus on saving metadata and returning display data.
-        
+        $reportData = [];
         $inventory = get_data('inventory');
         $items = get_data('items');
         
@@ -587,7 +387,7 @@ try {
                 $qty = 0;
                 $val = 0;
                 foreach ($inventory as $batch) {
-                    if ($batch['ItemID'] === $item['ItemID']) {
+                    if ($batch['ItemID'] == $item['ItemID']) {
                         $qty += $batch['QuantityOnHand'];
                         $val += ($batch['QuantityOnHand'] * $batch['UnitCost']);
                     }
@@ -602,33 +402,31 @@ try {
                 }
             }
         } elseif ($reportType === 'receipt_confirmation') {
-            // Find receiving for PO
             $receivings = get_data('receivings');
             $targetRec = null;
-            // Simplified: look for any receiving linked to this PO
             foreach ($receivings as $rcv) {
-                if ($rcv['POID'] === $extraId) {
+                if ($rcv['POID'] == $extraId) {
                     $targetRec = $rcv; 
                     break;
                 }
             }
-            // Populate basic info even if not found
              $reportData = [
                 'poNumber' => $extraId,
-                'supplierName' => 'Unknown', // Enh: join with PO/Supplier
+                'supplierName' => 'Unknown',
                 'receivedDate' => $targetRec['ReceivedDate'] ?? 'Pending',
                 'receivedBy' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
                 'items' => $targetRec['ReceivedItems'] ?? []
             ];
         } elseif ($reportType === 'stock_card') {
-             // Basic Stock Card Calculation
              $stockMoves = [];
-             // 1. Receivings (In)
              $receivings = get_data('receivings');
              foreach ($receivings as $rcv) {
                  if (isset($rcv['ReceivedItems'])) {
                     foreach ($rcv['ReceivedItems'] as $ri) {
-                        if (get_item_id_from_batch($ri['BatchID'], $inventory) === $extraId) {
+                        // Use helper to resolve ItemID
+                        $batchBatch = array_filter($inventory, fn($b) => $b['BatchID'] == $ri['BatchID']);
+                        $batchBatch = reset($batchBatch);
+                        if ($batchBatch && $batchBatch['ItemID'] == $extraId) {
                             $stockMoves[] = [
                                 'date' => $rcv['ReceivedDate'],
                                 'type' => 'Receiving',
@@ -640,12 +438,13 @@ try {
                     }
                  }
              }
-             // 2. Issuances (Out)
              $issuances = get_data('issuances');
              foreach ($issuances as $iss) {
                  if (isset($iss['IssuedItems'])) {
                      foreach ($iss['IssuedItems'] as $ii) {
-                         if (get_item_id_from_batch($ii['BatchID'], $inventory) === $extraId) {
+                         $batchBatch = array_filter($inventory, fn($b) => $b['BatchID'] == $ii['BatchID']);
+                         $batchBatch = reset($batchBatch);
+                         if ($batchBatch && $batchBatch['ItemID'] == $extraId) {
                             $stockMoves[] = [
                                 'date' => $iss['DateIssued'],
                                 'type' => 'Issuance',
@@ -657,12 +456,9 @@ try {
                      }
                  }
              }
-             
-             // Sort by date
              usort($stockMoves, function($a, $b) {
                 return strtotime($a['date']) - strtotime($b['date']);
              });
-             
              $balance = 0;
              foreach ($stockMoves as &$move) {
                  $balance += $move['in'];
@@ -672,23 +468,24 @@ try {
              $reportData = ['itemName' => $extraId, 'transactions' => $stockMoves];
         }
 
-        $newReport = [
-            'ReportID' => $reportId,
+        $generatedDate = date('Y-m-d H:i:s');
+        $db->execute(
+            "INSERT INTO Report (UserID, ReportType, GeneratedDate, GeneratedForOffice) VALUES (?, ?, ?, ?)",
+            [$_SESSION['user']['UserID'], ucwords(str_replace('_', ' ', $reportType)), $generatedDate, $office]
+        );
+        $newReportID = $db->lastInsertId();
+        
+        $reportResponse = [
+            'ReportID' => $newReportID,
             'UserID' => $_SESSION['user']['UserID'],
             'ReportType' => ucwords(str_replace('_', ' ', $reportType)),
             'GeneratedDate' => $generatedDate,
             'GeneratedForOffice' => $office,
-            'GeneratedByFullName' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName']
+            'GeneratedByFullName' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
+            'data' => $reportData
         ];
         
-        // Save Metadata to DB
-        $reports = get_data('reports'); // This now queries DB
-        $reports[] = $newReport;
-        save_data('reports', $reports); // This now inserts to DB
-        
-        // Return result with data for immediate display
-        $newReport['data'] = $reportData;
-        echo json_encode(['success' => true, 'report' => $newReport]);
+        echo json_encode(['success' => true, 'report' => $reportResponse]);
 
     } elseif ($action === 'save_report') {
          // Deprecated but handled for backward compat if client sends it
@@ -748,12 +545,10 @@ try {
             $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand - ? WHERE BatchID = ?", [$qty, $batchId]);
             
             // Create Notice Of Issue
-            $issueId = 'ISS-' . uniqid();
             $db->execute(
-                "INSERT INTO NoticeOfIssue (IssueID, BatchID, UserID, ReportDate, IssueType, QuantityAffected, Remarks, StatusType, PhotoPath) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO NoticeOfIssue (BatchID, UserID, ReportDate, IssueType, QuantityAffected, Remarks, StatusType, PhotoPath) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [
-                    $issueId,
                     $batchId,
                     $_SESSION['user']['UserID'],
                     date('Y-m-d H:i:s'),
@@ -764,9 +559,10 @@ try {
                     $photoPath
                 ]
             );
+            $newIssueId = $db->lastInsertId();
             
             $db->commit();
-            logTransaction('Stock Disposal', 'NoticeOfIssue', $issueId);
+            logTransaction('Stock Disposal', 'NoticeOfIssue', $newIssueId);
              echo json_encode(['success' => true]);
         } catch (Exception $e) {
             $db->rollback();
@@ -853,24 +649,22 @@ try {
         }
         
         global $db;
-        $adjId = 'RADJ-' . uniqid();
-        
         // Just create record for now as specific item details aren't passed
         $res = $db->execute(
-            "INSERT INTO RequisitionAdjustment (RequisitionAdjustmentID, IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO RequisitionAdjustment (IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
+             VALUES (?, ?, ?, ?, ?)",
             [
-                $adjId,
-                null, // No issuance ID linked directly in form, could query via ReqID if needed
+                null, // No issuance ID linked directly in form
                 $_SESSION['user']['UserID'],
                 'Return',
                 date('Y-m-d H:i:s'),
                 $reason
             ]
         );
+        $newAdjId = $db->lastInsertId();
         
         if ($res) {
-             logTransaction('Stock Return Request', 'RequisitionAdjustment', $adjId);
+             logTransaction('Stock Return Request', 'RequisitionAdjustment', $newAdjId);
              echo json_encode(['success' => true]);
         } else {
              echo json_encode(['success' => false, 'message' => 'Database error']);
@@ -919,7 +713,7 @@ try {
         $updated = false;
         
         foreach ($items as &$i) {
-            if ($i['ItemID'] === $itemId) {
+            if ($i['ItemID'] == $itemId) {
                 $i['ItemName'] = $itemName;
                 $i['ItemType'] = $itemType;
                 $i['UnitOfMeasure'] = $unit;
@@ -943,7 +737,7 @@ try {
         $found = false;
         
         foreach ($items as $i) {
-            if ($i['ItemID'] === $itemId) {
+            if ($i['ItemID'] == $itemId) {
                 $found = true;
                 continue; // Skip logic to delete
             }
