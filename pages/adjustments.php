@@ -7,7 +7,7 @@ $adjustment_logs = get_data('adjustment_logs') ?? []; // Placeholder for history
 
 // Filter for completed/issued requisitions for returns
 $completedRequisitions = array_filter($requisitions, function($req) {
-    return $req['StatusType'] === 'Completed';
+    return in_array($req['StatusType'], ['Completed', 'Issued']);
 });
 
 // Handle pre-selected batch from URL
@@ -122,15 +122,48 @@ if ($preSelectedBatch) {
 
             <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm overflow-hidden p-10">
                 <form @submit.prevent="processReturn" class="space-y-8">
-                    <!-- Processed Requisition -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Processed Requisition</label>
-                        <select x-model="returnReqID" required class="form-select bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all">
-                            <option value="">Select a requisition</option>
-                            <template x-for="req in completedRequisitions" :key="req.RequisitionID">
-                                <option :value="req.RequisitionID" x-text="`${req.RequisitionNumber} - ${req.HealthCenterName} (${new Date(req.RequestedDate).toLocaleDateString()})`"></option>
+                    <!-- Processed Requisition Search & Select -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
+                        <div class="md:col-span-1">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Search by Batch ID</label>
+                            <div class="relative">
+                                <input type="text" x-model="searchBatchID" @keyup.enter="searchByBatch" class="form-input bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="Enter Batch ID...">
+                                <button type="button" @click="searchByBatch" class="absolute right-2 top-2 p-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Processed Requisition</label>
+                            <select x-model="returnReqID" required class="form-select bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all">
+                                <option value="">Select a requisition</option>
+                                <template x-for="req in completedRequisitions" :key="req.RequisitionID">
+                                    <option :value="req.RequisitionID" x-text="`${req.RequisitionNumber} - ${req.HealthCenterName} (${req.RequestedDate && req.RequestedDate !== '0000-00-00 00:00:00' ? new Date(req.RequestedDate).toLocaleDateString() : 'N/A'})`"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Processed Requisition Items (Dynamic) -->
+                    <div x-show="returnReqID" class="p-6 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Items issued in this requisition</label>
+                        <div class="space-y-3">
+                            <template x-for="item in returnItems" :key="item.IssuanceItemID">
+                                <div x-show="!searchBatchID || item.BatchID == searchBatchID" class="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <input type="checkbox" x-model="item.selected" class="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500">
+                                    <div class="flex-1">
+                                        <p class="text-sm font-bold text-slate-700 dark:text-white" x-text="item.ItemName"></p>
+                                        <p class="text-[10px] text-slate-400" x-text="'Batch: ' + item.BatchID"></p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">Qty</span>
+                                        <input type="number" x-model="item.returnQty" :max="item.QuantityIssued" min="1" 
+                                               class="w-20 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-xs py-1 px-2 rounded-lg focus:ring-teal-500 focus:border-teal-500">
+                                        <span class="text-[10px] text-slate-400" x-text="'/ ' + item.QuantityIssued"></span>
+                                    </div>
+                                </div>
                             </template>
-                        </select>
+                        </div>
                     </div>
 
                     <div>
@@ -139,7 +172,11 @@ if ($preSelectedBatch) {
                     </div>
 
                     <div class="flex justify-end pt-4">
-                        <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-teal-900/10 active:scale-95">Process Return</button>
+                        <button type="submit" 
+                                :disabled="!returnReqID || !returnItems.some(i => i.selected)"
+                                class="bg-teal-600 hover:bg-teal-700 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-teal-900/10 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Process Return
+                        </button>
                     </div>
                 </form>
             </div>
@@ -209,7 +246,65 @@ function adjustmentFlow() {
         disposeRemarks: '',
         
         returnReqID: '',
+        searchBatchID: '',
         returnReason: '',
+        returnItems: [],
+
+        init() {
+            this.$watch('returnReqID', (val) => {
+                if (!val) {
+                    this.returnItems = [];
+                    return;
+                }
+                const req = this.completedRequisitions.find(r => r.RequisitionID == val);
+                if (req && req.IssuedItems) {
+                    this.returnItems = req.IssuedItems.map(i => ({
+                        ...i,
+                        selected: this.searchBatchID ? (i.BatchID == this.searchBatchID) : true,
+                        returnQty: i.QuantityIssued || i.QuantityRequested // Fallback
+                    }));
+                } else {
+                    this.returnItems = [];
+                }
+            });
+
+            // Handle pre-selected data from URL
+            const urlBatch = '<?php echo $preSelectedBatch; ?>';
+            const urlItem = '<?php echo $preSelectedItem; ?>';
+            
+            if (urlItem) {
+                this.selectedItem = urlItem;
+                this.updateBatches();
+                if (urlBatch) {
+                    this.selectedBatch = urlBatch;
+                }
+            }
+
+            // Watch for searchBatchID changes to auto-filter if requisition is already selected
+            this.$watch('searchBatchID', (val) => {
+                if (val && this.returnItems.length > 0) {
+                    this.returnItems.forEach(i => {
+                        i.selected = (i.BatchID == val);
+                    });
+                }
+            });
+        },
+
+        searchByBatch() {
+            if (!this.searchBatchID) return;
+            
+            // Look through completed requisitions and their issued items
+            const foundReq = this.completedRequisitions.find(req => {
+                if (!req.IssuedItems) return false;
+                return req.IssuedItems.some(item => item.BatchID == this.searchBatchID);
+            });
+
+            if (foundReq) {
+                this.returnReqID = foundReq.RequisitionID;
+            } else {
+                alert('No issued requisition found for this Batch ID.');
+            }
+        },
         
         // Modal state
         showAdjustmentModal: false,
@@ -224,20 +319,6 @@ function adjustmentFlow() {
             this.selectedBatch = '';
             // Use == for type-insensitive comparison or cast both to string
             this.filteredBatches = this.inventory.filter(b => b.ItemID == this.selectedItem);
-        },
-
-        init() {
-            // Handle pre-selected data from URL
-            const urlBatch = '<?php echo $preSelectedBatch; ?>';
-            const urlItem = '<?php echo $preSelectedItem; ?>';
-            
-            if (urlItem) {
-                this.selectedItem = urlItem;
-                this.updateBatches();
-                if (urlBatch) {
-                    this.selectedBatch = urlBatch;
-                }
-            }
         },
         
         viewAdjustment(adjustment) {
@@ -321,16 +402,26 @@ function adjustmentFlow() {
         async processReturn() {
             if(!this.returnReqID) return;
             
+            const itemsToReturn = this.returnItems.filter(i => i.selected);
+            if (itemsToReturn.length === 0) {
+                alert('Please select at least one item to return.');
+                return;
+            }
+
             const formData = new FormData();
             formData.append('action', 'return_stock');
             formData.append('requisitionId', this.returnReqID);
             formData.append('reason', this.returnReason);
+            formData.append('items', JSON.stringify(itemsToReturn.map(i => ({
+                batchId: i.BatchID,
+                quantity: i.returnQty
+            }))));
             
             try {
                 const response = await fetch('api.php', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    alert('Item return processed!');
+                    alert('Item return processed! Inventory updated.');
                     location.reload();
                 } else {
                     alert('Error: ' + result.message);

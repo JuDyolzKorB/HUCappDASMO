@@ -109,6 +109,7 @@ $items = get_data('items');
                             <select 
                                 class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
                                 name="items[]" 
+                                onchange="toggleExpiry(this)"
                                 required>
                                 <option value="">Select item...</option>
                                 <?php foreach ($items as $item): ?>
@@ -197,6 +198,7 @@ function toggleSupplierInput(checkbox) {
     }
 }
 
+// Initial item row
 function closeAddPOModal() {
     document.getElementById('addPOModal').classList.add('hidden');
     document.getElementById('addPOForm').reset();
@@ -212,6 +214,28 @@ function closeAddPOModal() {
     const rows = container.querySelectorAll('.po-item-row');
     for (let i = 1; i < rows.length; i++) {
         rows[i].remove();
+    }
+    
+    // Reset one row expiry
+    toggleExpiry(container.querySelector('.po-item-row select'));
+}
+
+const itemsData = <?php echo json_encode($items); ?>;
+
+function toggleExpiry(selectEl) {
+    if (!selectEl) return;
+    const row = selectEl.closest('.po-item-row');
+    const expiryInput = row.querySelector('input[name="expiryDates[]"]');
+    const itemId = selectEl.value;
+    
+    const item = itemsData.find(i => i.ItemID == itemId);
+    if (item && item.UnitOfMeasure && item.UnitOfMeasure.toUpperCase() === 'UNIT') {
+        expiryInput.setAttribute('disabled', 'disabled');
+        expiryInput.classList.add('opacity-50', 'bg-slate-100');
+        expiryInput.value = '';
+    } else {
+        expiryInput.removeAttribute('disabled');
+        expiryInput.classList.remove('opacity-50', 'bg-slate-100');
     }
 }
 

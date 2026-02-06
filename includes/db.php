@@ -195,16 +195,64 @@ function get_data($file) {
             
         case 'requisitions':
             // Get requisitions with their items and approval logs
-            $reqs = $db->fetchAll("SELECT * FROM Requisition ORDER BY RequestDate DESC");
+            // Join Issuance to get IssuanceID for adjustments
+            $reqs = $db->fetchAll("
+                SELECT r.*, i.IssuanceID 
+                FROM Requisition r 
+                LEFT JOIN Issuance i ON r.RequisitionID = i.RequisitionID
+                ORDER BY r.RequestDate DESC
+            ");
             foreach ($reqs as &$req) {
                 $req['RequisitionItems'] = $db->fetchAll(
-                    "SELECT * FROM RequisitionItem WHERE RequisitionID = ?", 
+                    "SELECT ri.*, i.ItemName FROM RequisitionItem ri 
+                     JOIN Item i ON ri.ItemID = i.ItemID
+                     WHERE ri.RequisitionID = ?", 
                     [$req['RequisitionID']]
                 );
+
+                $req['IssuedItems'] = [];
+                if ($req['IssuanceID']) {
+                    $req['IssuedItems'] = $db->fetchAll(
+                        "SELECT ii.*, i.ItemName, cib.ItemID 
+                         FROM IssuanceItem ii
+                         JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
+                         JOIN Item i ON cib.ItemID = i.ItemID
+                         WHERE ii.IssuanceID = ?",
+                        [$req['IssuanceID']]
+                    );
+                }
+
                 $req['ApprovalLogs'] = $db->fetchAll(
-                    "SELECT * FROM ApprovalLog WHERE RequisitionID = ?", 
+                    "SELECT al.*, CONCAT(u.FName, ' ', u.LName) as ApprovedByFullName 
+                     FROM ApprovalLog al 
+                     LEFT JOIN Users u ON al.UserID = u.UserID
+                     WHERE al.RequisitionID = ? 
+                     ORDER BY al.DecisionDate DESC", 
                     [$req['RequisitionID']]
                 );
+
+                // Get Adjustments for this requisition
+                // Adjustments are linked to Issuance, which is linked to Requisition
+                $req['Adjustments'] = $db->fetchAll(
+                    "SELECT ra.*, CONCAT(u.FName, ' ', u.LName) as AdjustedByFullName 
+                     FROM RequisitionAdjustment ra
+                     JOIN Issuance i ON ra.IssuanceID = i.IssuanceID
+                     LEFT JOIN Users u ON ra.UserID = u.UserID
+                     WHERE i.RequisitionID = ?
+                     ORDER BY ra.AdjustmentDate DESC",
+                    [$req['RequisitionID']]
+                );
+
+                foreach ($req['Adjustments'] as &$adj) {
+                    $adj['Details'] = $db->fetchAll(
+                        "SELECT rad.*, i.ItemName, i.ItemID, cib.BatchID as BatchLabel
+                         FROM RequisitionAdjustmentDetail rad
+                         LEFT JOIN CentralInventoryBatch cib ON rad.BatchID = cib.BatchID
+                         LEFT JOIN Item i ON cib.ItemID = i.ItemID
+                         WHERE rad.RequisitionAdjustmentID = ?",
+                        [$adj['RequisitionAdjustmentID']]
+                    );
+                }
                 
                 // Get health center name
                 $hc = $db->fetchOne(
@@ -285,11 +333,28 @@ function get_data($file) {
                     CONCAT('Adjustment #', ra.RequisitionAdjustmentID) as Reference,
                     0 as Quantity,
                     ra.Reason,
-                    ra.AdjustmentDate as Date
+                    ra.AdjustmentDate as Date,
+                    ra.IssuanceID
                 FROM RequisitionAdjustment ra
                 WHERE ra.AdjustmentType = 'Return'
                 ORDER BY ra.AdjustmentDate DESC
             ");
+
+            foreach ($returns as &$ret) {
+                $details = $db->fetchAll("
+                    SELECT rad.*, i.ItemName 
+                    FROM RequisitionAdjustmentDetail rad
+                    JOIN CentralInventoryBatch cib ON rad.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    WHERE rad.RequisitionAdjustmentID = ?
+                ", [$ret['ID']]);
+                
+                $ret['Details'] = $details;
+                if (!empty($details)) {
+                    $ret['Quantity'] = array_sum(array_column($details, 'QuantityAdjusted'));
+                    $ret['Reference'] .= " (" . implode(', ', array_map(fn($d) => $d['ItemName'], $details)) . ")";
+                }
+            }
             
             // Combine and sort by date
             $combined = array_merge($disposals, $returns);

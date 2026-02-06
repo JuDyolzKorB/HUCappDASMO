@@ -98,7 +98,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo number_format($item['TotalQuantity']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-primary dark:text-teal-400"><?php echo $item['Unit']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                                <?php echo $item['NextExpiry'] ? date('n/j/Y', strtotime($item['NextExpiry'])) : 'N/A'; ?>
+                                <?php echo (strtoupper($item['Unit']) === 'UNIT') ? 'N/A' : ($item['NextExpiry'] ? date('n/j/Y', strtotime($item['NextExpiry'])) : 'N/A'); ?>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                                 <div class="flex items-center justify-end space-x-2">
@@ -138,7 +138,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
                                                 <?php if (isset($batchesByItem[$item['ItemID']])): ?>
                                                     <?php foreach ($batchesByItem[$item['ItemID']] as $batch): ?>
                                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                                                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300"><?php echo date('n/j/Y', strtotime($batch['ExpiryDate'])); ?></td>
+                                                        <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300"><?php echo (strtoupper($item['Unit']) === 'UNIT') ? 'N/A' : date('n/j/Y', strtotime($batch['ExpiryDate'])); ?></td>
                                                         <td class="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white"><?php echo number_format($batch['QuantityOnHand']); ?></td>
                                                         <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">$<?php echo number_format($batch['UnitCost'], 2); ?></td>
                                                         <td class="px-4 py-3 text-right">

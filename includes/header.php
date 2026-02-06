@@ -69,7 +69,7 @@ $user = getCurrentUser();
                     </div>
                     <div class="text-left hidden md:block">
                         <p class="text-xs font-bold text-slate-800 dark:text-white leading-tight"><?php echo $user['FirstName'] ?? 'User'; ?></p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Administrator</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium"><?php echo $user['Role'] ?? 'User'; ?></p>
                     </div>
                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400 transition-transform duration-200" :class="{'rotate-180': open}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />

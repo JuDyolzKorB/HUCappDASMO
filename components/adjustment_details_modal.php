@@ -91,6 +91,33 @@
                             </template>
                         </div>
 
+                        <!-- Itemized Details (for RequisitionAdjustments/Returns) -->
+                        <template x-if="selectedAdjustment.Details && selectedAdjustment.Details.length > 0">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Adjusted Items</label>
+                                <div class="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+                                    <table class="w-full text-left text-sm">
+                                        <thead class="bg-slate-100/50 dark:bg-slate-800/50">
+                                            <tr>
+                                                <th class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Item Name</th>
+                                                <th class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Batch</th>
+                                                <th class="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                                            <template x-for="detail in selectedAdjustment.Details" :key="detail.RequisitionAdjustmentDetailID">
+                                                <tr>
+                                                    <td class="px-4 py-2 font-medium text-slate-700 dark:text-slate-300" x-text="detail.ItemName"></td>
+                                                    <td class="px-4 py-2 text-xs text-slate-500" x-text="detail.BatchID"></td>
+                                                    <td class="px-4 py-2 text-right font-bold text-teal-600 dark:text-teal-400" x-text="detail.QuantityAdjusted"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+
                         <!-- Photo Display (only for disposals with photos) -->
                         <template x-if="selectedAdjustment.Type === 'Disposal' && selectedAdjustment.PhotoPath">
                             <div>

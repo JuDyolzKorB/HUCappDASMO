@@ -367,6 +367,12 @@ try {
         $res = $db->execute("UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?", [$status, $reqId]);
         
         if ($res) {
+            // Log Approval
+            $db->execute(
+                "INSERT INTO ApprovalLog (RequisitionID, UserID, Decision, DecisionDate) VALUES (?, ?, ?, ?)",
+                [$reqId, $_SESSION['user']['UserID'], $status, date('Y-m-d H:i:s')]
+            );
+            
             log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Updated Requisition $reqId status to $status");
             echo json_encode(['success' => true]);
         } else {
@@ -417,20 +423,40 @@ try {
                 'receivedBy' => $_SESSION['user']['FirstName'] . ' ' . $_SESSION['user']['LastName'],
                 'items' => $targetRec['ReceivedItems'] ?? []
             ];
-        } elseif ($reportType === 'stock_card') {
+        } elseif ($reportType === 'stock_card' || $reportType === 'stock_card_ledger') {
              $stockMoves = [];
              $receivings = get_data('receivings');
+             $issuances = get_data('issuances');
+             $adjustments = get_data('adjustment_logs'); // Get returns too
+             
+             // 1. Get Item info
+             $targetItem = $db->fetchOne("SELECT * FROM Item WHERE ItemID = ?", [$extraId]);
+             $itemName = $targetItem ? $targetItem['ItemName'] : "Item #$extraId";
+             $itemType = $targetItem ? $targetItem['ItemType'] : "N/A";
+
+             // 2. Get Current Batches
+             $batches = $db->fetchAll("SELECT * FROM CentralInventoryBatch WHERE ItemID = ? AND QuantityOnHand > 0", [$extraId]);
+             $formattedBatches = array_map(function($b) {
+                return [
+                    'batchId' => $b['BatchID'],
+                    'quantity' => $b['QuantityOnHand'],
+                    'expiry' => $b['ExpiryDate'],
+                    'cost' => (float)$b['UnitCost']
+                ];
+             }, $batches);
+
+             // 3. Transactions: Receivings
              foreach ($receivings as $rcv) {
                  if (isset($rcv['ReceivedItems'])) {
                     foreach ($rcv['ReceivedItems'] as $ri) {
-                        // Use helper to resolve ItemID
                         $batchBatch = array_filter($inventory, fn($b) => $b['BatchID'] == $ri['BatchID']);
                         $batchBatch = reset($batchBatch);
                         if ($batchBatch && $batchBatch['ItemID'] == $extraId) {
                             $stockMoves[] = [
                                 'date' => $rcv['ReceivedDate'],
                                 'type' => 'Receiving',
-                                'ref' => $rcv['POID'],
+                                'ref' => 'PO #' . ($rcv['PONumber'] ?? $rcv['POID']),
+                                'batch' => $ri['BatchID'],
                                 'in' => $ri['QuantityReceived'],
                                 'out' => 0
                             ];
@@ -438,7 +464,8 @@ try {
                     }
                  }
              }
-             $issuances = get_data('issuances');
+
+             // 4. Transactions: Issuances
              foreach ($issuances as $iss) {
                  if (isset($iss['IssuedItems'])) {
                      foreach ($iss['IssuedItems'] as $ii) {
@@ -448,7 +475,8 @@ try {
                             $stockMoves[] = [
                                 'date' => $iss['DateIssued'],
                                 'type' => 'Issuance',
-                                'ref' => $iss['RequisitionID'],
+                                'ref' => 'REQ #' . ($iss['RequisitionNumber'] ?? $iss['RequisitionID']),
+                                'batch' => $ii['BatchID'],
                                 'in' => 0,
                                 'out' => $ii['QuantityIssued']
                             ];
@@ -456,16 +484,47 @@ try {
                      }
                  }
              }
+             
+             // 5. Transactions: Adjustments (Returns/Disposals)
+             foreach ($adjustments as $adj) {
+                 // For now, only handle Returns that affect this item
+                 if ($adj['Type'] === 'Return') {
+                    // We need to check if this adjustment affects the target item
+                    // Fetch details if not present
+                    $details = $adj['Details'] ?? [];
+                    foreach ($details as $d) {
+                        if ($d['ItemID'] == $extraId) {
+                            $stockMoves[] = [
+                                'date' => $adj['Date'],
+                                'type' => 'Return',
+                                'ref' => $adj['Reference'],
+                                'batch' => $d['BatchID'],
+                                'in' => $d['QuantityAdjusted'],
+                                'out' => 0
+                            ];
+                        }
+                    }
+                 }
+             }
+
              usort($stockMoves, function($a, $b) {
                 return strtotime($a['date']) - strtotime($b['date']);
              });
+
              $balance = 0;
              foreach ($stockMoves as &$move) {
                  $balance += $move['in'];
                  $balance -= $move['out'];
                  $move['balance'] = $balance;
              }
-             $reportData = ['itemName' => $extraId, 'transactions' => $stockMoves];
+
+             $reportData = [
+                'itemName' => $itemName,
+                'itemType' => $itemType,
+                'currentBalance' => $balance,
+                'batches' => $formattedBatches,
+                'transactions' => $stockMoves
+             ];
         }
 
         $generatedDate = date('Y-m-d H:i:s');
@@ -569,79 +628,56 @@ try {
             echo json_encode(['success' => false, 'message' => 'Database error']);
         }
 
-    } elseif ($action === 'update_adjustment') {
-        $adjustmentId = $_POST['adjustmentId'] ?? '';
-        $adjustmentType = $_POST['adjustmentType'] ?? '';
-        $quantity = (int)($_POST['quantity'] ?? 0);
+    } elseif ($action === 'add_requisition_adjustment') {
+        $issuanceId = $_POST['issuanceId'] ?? '';
+        $adjustmentType = $_POST['adjustmentType'] ?? 'Damaged'; // e.g., Damaged, Lost, Quality Issue
         $reason = $_POST['reason'] ?? '';
-        
-        if (!$adjustmentId || !$adjustmentType) {
-            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+        $items = json_decode($_POST['items'] ?? '[]', true); // Array of {BatchID, Quantity}
+
+        if (!$issuanceId || empty($items)) {
+            echo json_encode(['success' => false, 'message' => 'Issuance ID and items are required']);
             exit;
         }
-        
+
         global $db;
-        
+        $db->beginTransaction();
         try {
-            if ($adjustmentType === 'Disposal') {
-                // Handle photo upload if provided
-                $photoPath = null;
-                if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-                    $uploadDir = __DIR__ . '/uploads/adjustments/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0755, true);
-                    }
-                    
-                    $fileExtension = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-                    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-                    
-                    if (!in_array($fileExtension, $allowedExtensions)) {
-                        echo json_encode(['success' => false, 'message' => 'Invalid file type']);
-                        exit;
-                    }
-                    
-                    if ($_FILES['photo']['size'] > 5 * 1024 * 1024) {
-                        echo json_encode(['success' => false, 'message' => 'File too large']);
-                        exit;
-                    }
-                    
-                    $fileName = 'disposal_' . uniqid() . '.' . $fileExtension;
-                    $targetPath = $uploadDir . $fileName;
-                    
-                    if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetPath)) {
-                        $photoPath = 'uploads/adjustments/' . $fileName;
-                    }
-                }
-                
-                // Update NoticeOfIssue
-                if ($photoPath) {
-                    $db->execute(
-                        "UPDATE NoticeOfIssue SET QuantityAffected = ?, Remarks = ?, PhotoPath = ? WHERE IssueID = ?",
-                        [$quantity, $reason, $photoPath, $adjustmentId]
-                    );
-                } else {
-                    $db->execute(
-                        "UPDATE NoticeOfIssue SET QuantityAffected = ?, Remarks = ? WHERE IssueID = ?",
-                        [$quantity, $reason, $adjustmentId]
-                    );
-                }
-            } else {
-                // Update RequisitionAdjustment
+            // 1. Create RequisitionAdjustment
+            $db->execute(
+                "INSERT INTO RequisitionAdjustment (IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
+                 VALUES (?, ?, ?, ?, ?)",
+                [$issuanceId, $_SESSION['user']['UserID'], $adjustmentType, date('Y-m-d H:i:s'), $reason]
+            );
+            $adjustmentId = $db->lastInsertId();
+
+            // 2. Create RequisitionAdjustmentDetail for each item
+            foreach ($items as $item) {
+                $batchId = $item['batchId'] ?? $item['BatchID'] ?? null;
+                $qty = (int)($item['quantity'] ?? $item['Quantity'] ?? 0);
+
+                if (!$batchId || $qty <= 0) continue;
+
                 $db->execute(
-                    "UPDATE RequisitionAdjustment SET Reason = ? WHERE RequisitionAdjustmentID = ?",
-                    [$reason, $adjustmentId]
+                    "INSERT INTO RequisitionAdjustmentDetail (RequisitionAdjustmentID, BatchID, QuantityAdjusted) 
+                     VALUES (?, ?, ?)",
+                    [$adjustmentId, $batchId, $qty]
                 );
             }
-            
-            logTransaction('Updated Adjustment', $adjustmentType, $adjustmentId);
+
+            $db->commit();
+            logTransaction('Added Requisition Adjustment', 'RequisitionAdjustment', $adjustmentId);
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Database error']);
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
         }
+
+    } elseif ($action === 'update_adjustment') {
 
     } elseif ($action === 'return_stock') {
         $reqId = $_POST['requisitionId'] ?? '';
         $reason = $_POST['reason'] ?? '';
+        $items = json_decode($_POST['items'] ?? '[]', true); // [{batchId, quantity}]
         
         if (!$reqId) {
              echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
@@ -649,25 +685,48 @@ try {
         }
         
         global $db;
-        // Just create record for now as specific item details aren't passed
-        $res = $db->execute(
-            "INSERT INTO RequisitionAdjustment (IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
-             VALUES (?, ?, ?, ?, ?)",
-            [
-                null, // No issuance ID linked directly in form
-                $_SESSION['user']['UserID'],
-                'Return',
-                date('Y-m-d H:i:s'),
-                $reason
-            ]
-        );
-        $newAdjId = $db->lastInsertId();
-        
-        if ($res) {
-             logTransaction('Stock Return Request', 'RequisitionAdjustment', $newAdjId);
-             echo json_encode(['success' => true]);
-        } else {
-             echo json_encode(['success' => false, 'message' => 'Database error']);
+        $db->beginTransaction();
+        try {
+            // Find Issuance for this Requisition
+            $issuance = $db->fetchOne("SELECT IssuanceID FROM Issuance WHERE RequisitionID = ?", [$reqId]);
+            $issuanceId = $issuance ? $issuance['IssuanceID'] : null;
+
+            // 1. Create RequisitionAdjustment
+            $db->execute(
+                "INSERT INTO RequisitionAdjustment (IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) 
+                 VALUES (?, ?, ?, ?, ?)",
+                [$issuanceId, $_SESSION['user']['UserID'], 'Return', date('Y-m-d H:i:s'), $reason]
+            );
+            $adjustmentId = $db->lastInsertId();
+
+            // 2. Create Details and Update Inventory
+            foreach ($items as $item) {
+                $batchId = $item['batchId'] ?? $item['BatchID'] ?? null;
+                $qty = (int)($item['quantity'] ?? $item['Quantity'] ?? 0);
+
+                if (!$batchId || $qty <= 0) continue;
+
+                $db->execute(
+                    "INSERT INTO RequisitionAdjustmentDetail (RequisitionAdjustmentID, BatchID, QuantityAdjusted) 
+                     VALUES (?, ?, ?)",
+                    [$adjustmentId, $batchId, $qty]
+                );
+
+                // For Returns, we increase inventory again
+                $db->execute(
+                    "UPDATE CentralInventoryBatch 
+                     SET QuantityOnHand = QuantityOnHand + ?, QuantityReleased = QuantityReleased - ? 
+                     WHERE BatchID = ?",
+                    [$qty, $qty, $batchId]
+                );
+            }
+
+            $db->commit();
+            logTransaction('Stock Return', 'RequisitionAdjustment', $adjustmentId);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
         }
 
     } elseif ($action === 'add_item') {

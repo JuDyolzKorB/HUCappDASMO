@@ -42,7 +42,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
         <div class="p-8">
             <!-- Generate Form Tab -->
             <div x-show="activeTab === 'generate'" x-cloak class="animate-fade-in">
-                <form @submit.prevent="simulateGeneration(reportType, $refs.officeSelect.value, reportType === 'receipt_confirmation' ? $refs.poSelect.value : (reportType === 'stock_card' ? $refs.itemSelect.value : ''))" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                <form @submit.prevent="simulateGeneration(reportType, $refs.officeSelect.value, reportType === 'receipt_confirmation' ? $refs.poSelect.value : ((reportType === 'stock_card' || reportType === 'stock_card_ledger') ? $refs.itemSelect.value : ''))" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
                     <input type="hidden" name="action" value="generate_report">
                     
                     <div :class="(reportType === 'receipt_confirmation' || reportType === 'stock_card') ? 'md:col-span-3' : 'md:col-span-4'">
@@ -50,6 +50,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
                         <select id="reportType" name="reportType" x-model="reportType" class="form-select w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl py-3 text-sm font-medium">
                             <option value="inventory_valuation">Inventory Valuation</option>
                             <option value="receipt_confirmation">Receipt Confirmation</option>
+                            <option value="stock_card_ledger">Stock Card & Ledger</option>
                         </select>
                     </div>
 
@@ -66,7 +67,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
                     </template>
 
                     <!-- Dynamic Item Field for Stock Card & Ledger -->
-                    <template x-if="reportType === 'stock_card'">
+                    <template x-if="reportType === 'stock_card' || reportType === 'stock_card_ledger'">
                         <div class="md:col-span-3 animate-fade-in">
                             <label for="itemSelect" class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Item</label>
                             <select id="itemSelect" name="itemSelect" x-ref="itemSelect" class="form-select w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl py-3 text-sm font-medium">
@@ -77,7 +78,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
                         </div>
                     </template>
 
-                    <div :class="(reportType === 'receipt_confirmation' || reportType === 'stock_card') ? 'md:col-span-3' : 'md:col-span-4'">
+                    <div :class="(reportType === 'receipt_confirmation' || reportType === 'stock_card' || reportType === 'stock_card_ledger') ? 'md:col-span-3' : 'md:col-span-4'">
                         <label for="forOffice" class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">For Office</label>
                         <select id="forOffice" name="forOffice" x-ref="officeSelect" class="form-select w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl py-3 text-sm font-medium">
                             <template x-for="office in offices" :key="office.id">
@@ -86,7 +87,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
                         </select>
                     </div>
 
-                    <div :class="(reportType === 'receipt_confirmation' || reportType === 'stock_card') ? 'md:col-span-3' : 'md:col-span-4'">
+                    <div :class="(reportType === 'receipt_confirmation' || reportType === 'stock_card' || reportType === 'stock_card_ledger') ? 'md:col-span-3' : 'md:col-span-4'">
                         <button type="submit" class="w-full btn btn-primary py-3.5 rounded-xl font-bold shadow-teal-900/10">Generate Report</button>
                     </div>
                 </form>
@@ -155,7 +156,7 @@ function reportsComponent() {
         get offices() {
             if (this.reportType === 'inventory_valuation' || this.reportType === 'receipt_confirmation') {
                 return [{ id: 'accounting', name: 'Accounting Office' }];
-            } else if (this.reportType === 'stock_card') {
+            } else if (this.reportType === 'stock_card' || this.reportType === 'stock_card_ledger') {
                 return [
                     { id: 'cmo', name: 'CMO Office' },
                     { id: 'gso', name: 'GSO Office' },

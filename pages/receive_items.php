@@ -63,7 +63,17 @@ function getItemNameById($id, $itemsData) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-                        <?php foreach ($purchaseOrder['PurchaseOrderItems'] as $index => $item): ?>
+                        <?php foreach ($purchaseOrder['PurchaseOrderItems'] as $index => $item): 
+                            // Get item details for unit check
+                            $itemUnit = 'N/A';
+                            foreach ($itemsData as $i) {
+                                if ($i['ItemID'] == $item['ItemID']) {
+                                    $itemUnit = $i['UnitOfMeasure'];
+                                    break;
+                                }
+                            }
+                            $isUnit = (strtoupper($itemUnit) === 'UNIT');
+                        ?>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">
                                 <?php echo getItemNameById($item['ItemID'], $itemsData); ?>
@@ -85,7 +95,12 @@ function getItemNameById($id, $itemsData) {
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <input type="date" name="items[<?php echo $index; ?>][expiryDate]" value="<?php echo $item['ExpiryDate'] ?? ''; ?>" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                <?php if ($isUnit): ?>
+                                    <span class="text-xs text-slate-400 italic">Not applicable</span>
+                                    <input type="hidden" name="items[<?php echo $index; ?>][expiryDate]" value="">
+                                <?php else: ?>
+                                    <input type="date" name="items[<?php echo $index; ?>][expiryDate]" value="<?php echo $item['ExpiryDate'] ?? ''; ?>" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
