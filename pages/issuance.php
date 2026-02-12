@@ -8,7 +8,7 @@ function getItemName($itemId, $items) {
     global $db;
     $items = get_data('items');
     foreach ($items as $item) {
-        if ($item['ItemID'] === $itemId) return $item['ItemName'];
+        if ($item['ItemID'] == $itemId) return $item['ItemName'];
     }
     return $itemId;
 }
@@ -60,9 +60,9 @@ $tab = $_GET['tab'] ?? 'request';
                     <?php else: ?>
                         <?php foreach ($pendingReqs as $req): ?>
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $req['RequisitionNumber']; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $req['RequisitionNumber'] ?? 'N/A'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $req['HealthCenterName']; ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($req['RequestedDate'])); ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo !empty($req['RequestedDate']) ? date('M d, Y', strtotime($req['RequestedDate'])) : 'N/A'; ?></td>
                              <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                     Approved
@@ -104,7 +104,7 @@ $tab = $_GET['tab'] ?? 'request';
                             // Enrichment
                             $issuedByName = 'System/Unknown';
                             foreach ($users as $u) {
-                                if ($u['UserID'] === ($iss['IssuedByUserID'] ?? '')) {
+                                if ($u['UserID'] == ($iss['IssuedByUserID'] ?? '')) {
                                     $issuedByName = $u['FirstName'] . ' ' . $u['LastName'];
                                     break;
                                 }
@@ -112,8 +112,8 @@ $tab = $_GET['tab'] ?? 'request';
                             
                             $reqNum = $iss['RequisitionID'] ?? 'N/A';
                             foreach ($reqs as $r) {
-                                if ($r['RequisitionID'] === $iss['RequisitionID']) {
-                                    $reqNum = $r['RequisitionNumber'];
+                                if ($r['RequisitionID'] == $iss['RequisitionID']) {
+                                    $reqNum = $r['RequisitionNumber'] ?? 'N/A';
                                     break;
                                 }
                             }

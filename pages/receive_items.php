@@ -3,30 +3,30 @@
 
 $poid = $_GET['id'] ?? null;
 if (!$poid) {
-    echo "Purchase Order ID is required.";
+    echo "Procurement Order ID is required.";
     exit;
 }
 
-$purchaseOrders = get_data('purchase_orders');
+$procurementOrders = get_data('procurement_orders');
 $itemsData = get_data('items');
 
 // Find PO
 $purchaseOrder = null;
-foreach ($purchaseOrders as $po) {
-    if ($po['POID'] === $poid) {
+foreach ($procurementOrders as $po) {
+    if ($po['POID'] == $poid) {
         $purchaseOrder = $po;
         break;
     }
 }
 
 if (!$purchaseOrder) {
-    echo "Purchase Order not found.";
+    echo "Procurement Order not found.";
     exit;
 }
 
 function getItemNameById($id, $itemsData) {
     foreach ($itemsData as $i) {
-        if ($i['ItemID'] === $id) return $i['ItemName'];
+        if ($i['ItemID'] == $id) return $i['ItemName'];
     }
     return $id;
 }
@@ -37,7 +37,11 @@ function getItemNameById($id, $itemsData) {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Receive Items</h2>
-            <p class="text-slate-500 font-medium text-sm">Inspecting shipment for Purchase Order <span class="text-teal-600 font-bold"><?php echo $purchaseOrder['PONumber']; ?></span>.</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                <p>Inspecting shipment for <span class="text-teal-600 font-bold"><?php echo $purchaseOrder['PONumber']; ?></span></p>
+                <p>• Type: <span class="font-semibold"><?php echo $purchaseOrder['DocumentType'] ?? 'Procurement Order'; ?></span></p>
+                <p>• Contract: <span class="font-semibold text-slate-700 dark:text-slate-300"><?php echo $purchaseOrder['ContractNumber'] ?? 'N/A'; ?></span></p>
+            </div>
         </div>
         <a href="index.php?page=receiving" class="inline-flex items-center text-sm font-bold text-slate-500 hover:text-teal-600 transition-colors group">
             <svg class="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -63,7 +67,18 @@ function getItemNameById($id, $itemsData) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-                        <?php foreach ($purchaseOrder['PurchaseOrderItems'] as $index => $item): ?>
+                        <?php foreach ($purchaseOrder['ProcurementOrderItems'] as $index => $item): 
+                            $itemName = $item['ItemName'] ?? 'No Name';
+                            // Get item details for unit check
+                            $itemUnit = 'N/A';
+                            foreach ($itemsData as $i) {
+                                if ($i['ItemID'] == $item['ItemID']) {
+                                    $itemUnit = $i['UnitOfMeasure'];
+                                    break;
+                                }
+                            }
+                            $isUnit = (strtoupper($itemUnit) === 'UNIT');
+                        ?>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white">
                                 <?php echo getItemNameById($item['ItemID'], $itemsData); ?>
@@ -79,13 +94,18 @@ function getItemNameById($id, $itemsData) {
                             <td class="px-4 py-3 text-center">
                                 <div class="relative rounded-md shadow-sm max-w-[100px] mx-auto">
                                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                        <span class="text-gray-500 sm:text-sm">₱</span>
                                     </div>
                                     <input type="number" step="0.01" name="items[<?php echo $index; ?>][unitCost]" placeholder="0.00" required class="block w-full rounded-md border-slate-300 pl-7 focus:ring-primary focus:border-primary sm:text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white text-right">
                                 </div>
                             </td>
-                             <td class="px-4 py-3">
-                                <input type="date" name="items[<?php echo $index; ?>][expiryDate]" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                            <td class="px-4 py-3">
+                                <?php if ($isUnit): ?>
+                                    <span class="text-xs text-slate-400 italic">Not applicable</span>
+                                    <input type="hidden" name="items[<?php echo $index; ?>][expiryDate]" value="">
+                                <?php else: ?>
+                                    <input type="date" name="items[<?php echo $index; ?>][expiryDate]" value="<?php echo $item['ExpiryDate'] ?? ''; ?>" required class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-slate-300 rounded-md dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

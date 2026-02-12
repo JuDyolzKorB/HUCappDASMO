@@ -120,7 +120,7 @@ window.renderReport = function(report) {
                 </table>
             </div>
         `;
-    } else if (report.ReportType === 'Stock Card & Ledger') {
+    } else if (report.ReportType === 'Stock Card Ledger' || report.ReportType === 'Stock Card') {
         html += `
             <div class="mb-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-6">
                 <div class="flex items-center gap-4">

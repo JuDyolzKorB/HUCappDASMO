@@ -237,14 +237,14 @@ try {
     }
     echo "</div>";
     
-    // Migrate Purchase Orders
-    echo "<div class='step'><h3>8. Migrating Purchase Orders</h3>";
+    // Migrate Purchase Orders (Renamed to ProcurementOrder)
+    echo "<div class='step'><h3>8. Migrating Procurement Orders</h3>";
     $purchaseOrders = readJsonFile('purchase_orders');
     if (!empty($purchaseOrders)) {
         foreach ($purchaseOrders as $po) {
             try {
                 $stmt = $conn->prepare(
-                    "INSERT INTO PurchaseOrder (POID, UserID, SupplierID, HealthCenterID, PONumber, PODate, StatusType) 
+                    "INSERT INTO ProcurementOrder (POID, UserID, SupplierID, HealthCenterID, PONumber, PODate, StatusType) 
                      VALUES (?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE StatusType = VALUES(StatusType)"
                 );
@@ -258,11 +258,11 @@ try {
                     $po['StatusType'] ?? 'Pending'
                 ]);
                 
-                // Migrate PO Items
-                if (isset($po['PurchaseOrderItems'])) {
-                    foreach ($po['PurchaseOrderItems'] as $item) {
+                // Migrate PO Items (Renamed to ProcurementOrderItem)
+                if (isset($po['ProcurementOrderItems'])) {
+                    foreach ($po['ProcurementOrderItems'] as $item) {
                         $stmt = $conn->prepare(
-                            "INSERT INTO PurchaseOrderItem (POItemID, POID, ItemID, QuantityOrdered, UnitCost) 
+                            "INSERT INTO ProcurementOrderItem (POItemID, POID, ItemID, QuantityOrdered, UnitCost) 
                              VALUES (?, ?, ?, ?, ?)
                              ON DUPLICATE KEY UPDATE QuantityOrdered = VALUES(QuantityOrdered)"
                         );
@@ -276,10 +276,10 @@ try {
                     }
                 }
             } catch (Exception $e) {
-                logMigration("Error migrating PO {$po['POID']}: " . $e->getMessage(), 'error');
+                logMigration("Error migrating Procurement Order {$po['POID']}: " . $e->getMessage(), 'error');
             }
         }
-        logMigration("✓ Migrated " . count($purchaseOrders) . " purchase orders", 'success');
+        logMigration("✓ Migrated " . count($purchaseOrders) . " procurement orders", 'success');
     } else {
         logMigration("No purchase orders found in JSON", 'info');
     }

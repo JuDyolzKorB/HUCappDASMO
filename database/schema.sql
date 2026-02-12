@@ -1,8 +1,8 @@
 -- HUCappDASMO Database Schema
--- Database: hucappdb
--- Final Schema with 21 Tables
+-- Refactored for Auto-Increment IDs and Correct Relationships
 
--- Drop tables if they exist (in reverse order of dependencies)
+SET FOREIGN_KEY_CHECKS = 0;
+
 DROP TABLE IF EXISTS Report;
 DROP TABLE IF EXISTS ApprovalLog;
 DROP TABLE IF EXISTS SecurityLog;
@@ -19,15 +19,19 @@ DROP TABLE IF EXISTS Receiving;
 DROP TABLE IF EXISTS PurchaseOrderItem;
 DROP TABLE IF EXISTS PurchaseOrder;
 DROP TABLE IF EXISTS CentralInventoryBatch;
+DROP TABLE IF EXISTS Inventory; -- Legacy check
+DROP TABLE IF EXISTS Contract;
 DROP TABLE IF EXISTS Warehouse;
 DROP TABLE IF EXISTS Item;
 DROP TABLE IF EXISTS Supplier;
 DROP TABLE IF EXISTS HealthCenters;
 DROP TABLE IF EXISTS Users;
 
--- 1. User Table (named Users to avoid MySQL reserved keyword)
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- 1. User Table
 CREATE TABLE Users (
-    UserID VARCHAR(50) PRIMARY KEY,
+    UserID INT AUTO_INCREMENT PRIMARY KEY,
     FName VARCHAR(100) NOT NULL,
     MName VARCHAR(100),
     LName VARCHAR(100) NOT NULL,
@@ -40,7 +44,7 @@ CREATE TABLE Users (
 
 -- 2. HealthCenters Table
 CREATE TABLE HealthCenters (
-    HealthCenterID VARCHAR(50) PRIMARY KEY,
+    HealthCenterID INT AUTO_INCREMENT PRIMARY KEY,
     Name VARCHAR(200) NOT NULL,
     Address TEXT,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -48,7 +52,7 @@ CREATE TABLE HealthCenters (
 
 -- 3. Supplier Table
 CREATE TABLE Supplier (
-    SupplierID VARCHAR(50) PRIMARY KEY,
+    SupplierID INT AUTO_INCREMENT PRIMARY KEY,
     Name VARCHAR(200) NOT NULL,
     Address TEXT,
     ContactInfo VARCHAR(200),
@@ -57,7 +61,7 @@ CREATE TABLE Supplier (
 
 -- 4. Item Table
 CREATE TABLE Item (
-    ItemID VARCHAR(50) PRIMARY KEY,
+    ItemID INT AUTO_INCREMENT PRIMARY KEY,
     ItemName VARCHAR(200) NOT NULL,
     ItemType VARCHAR(50),
     UnitOfMeasure VARCHAR(50),
@@ -66,7 +70,7 @@ CREATE TABLE Item (
 
 -- 5. Warehouse Table
 CREATE TABLE Warehouse (
-    WarehouseID VARCHAR(50) PRIMARY KEY,
+    WarehouseID INT AUTO_INCREMENT PRIMARY KEY,
     WarehouseName VARCHAR(200) NOT NULL,
     Location TEXT,
     WarehouseType VARCHAR(100),
@@ -75,9 +79,9 @@ CREATE TABLE Warehouse (
 
 -- 6. CentralInventoryBatch Table
 CREATE TABLE CentralInventoryBatch (
-    BatchID VARCHAR(50) PRIMARY KEY,
-    ItemID VARCHAR(50) NOT NULL,
-    WarehouseID VARCHAR(50),
+    BatchID INT AUTO_INCREMENT PRIMARY KEY,
+    ItemID INT NOT NULL,
+    WarehouseID INT DEFAULT 1, -- Default to Main Warehouse
     ExpiryDate DATE,
     QuantityOnHand INT NOT NULL DEFAULT 0,
     QuantityReleased INT DEFAULT 0,
@@ -88,48 +92,65 @@ CREATE TABLE CentralInventoryBatch (
     FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 7. PurchaseOrder Table
-CREATE TABLE PurchaseOrder (
-    POID VARCHAR(50) PRIMARY KEY,
-    UserID VARCHAR(50),
-    SupplierID VARCHAR(50),
-    HealthCenterID VARCHAR(50),
-    PONumber VARCHAR(100) UNIQUE NOT NULL,
+-- 7. Contract Table
+CREATE TABLE Contract (
+    ContractID INT AUTO_INCREMENT PRIMARY KEY,
+    SupplierID INT,
+    ContractNumber VARCHAR(100) UNIQUE NOT NULL,
+    StartDate DATE,
+    EndDate DATE,
+    ContractAmount DECIMAL(15, 2),
+    StatusType VARCHAR(50) DEFAULT 'Active',
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8. ProcurementOrder Table
+CREATE TABLE ProcurementOrder (
+    POID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
+    SupplierID INT,
+    HealthCenterID INT,
+    PONumber VARCHAR(100) UNIQUE, -- Generated e.g. PO-2026-0001
     PODate DATETIME NOT NULL,
     StatusType VARCHAR(50) DEFAULT 'Pending',
+    ContractID INT, -- Added per previousTurn
+    DocumentType VARCHAR(100), -- Added per previousTurn
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL,
     FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID) ON DELETE SET NULL,
-    FOREIGN KEY (HealthCenterID) REFERENCES HealthCenters(HealthCenterID) ON DELETE SET NULL
+    FOREIGN KEY (HealthCenterID) REFERENCES HealthCenters(HealthCenterID) ON DELETE SET NULL,
+    FOREIGN KEY (ContractID) REFERENCES Contract(ContractID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 8. PurchaseOrderItem Table
-CREATE TABLE PurchaseOrderItem (
-    POItemID VARCHAR(50) PRIMARY KEY,
-    POID VARCHAR(50) NOT NULL,
-    ItemID VARCHAR(50) NOT NULL,
+-- 8. ProcurementOrderItem Table
+CREATE TABLE ProcurementOrderItem (
+    POItemID INT AUTO_INCREMENT PRIMARY KEY,
+    POID INT NOT NULL,
+    ItemID INT NOT NULL,
     QuantityOrdered INT NOT NULL,
     UnitCost DECIMAL(10, 2),
-    FOREIGN KEY (POID) REFERENCES PurchaseOrder(POID) ON DELETE CASCADE,
+    ExpiryDate DATE, -- Added back ExpiryDate per requirements
+    FOREIGN KEY (POID) REFERENCES ProcurementOrder(POID) ON DELETE CASCADE,
     FOREIGN KEY (ItemID) REFERENCES Item(ItemID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 9. Receiving Table
 CREATE TABLE Receiving (
-    ReceivingID VARCHAR(50) PRIMARY KEY,
-    UserID VARCHAR(50),
-    POID VARCHAR(50),
+    ReceivingID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
+    POID INT,
     ReceivedDate DATETIME NOT NULL,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL,
-    FOREIGN KEY (POID) REFERENCES PurchaseOrder(POID) ON DELETE SET NULL
+    FOREIGN KEY (POID) REFERENCES ProcurementOrder(POID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 10. ReceivingItem Table
 CREATE TABLE ReceivingItem (
-    ReceivingItemID VARCHAR(50) PRIMARY KEY,
-    ReceivingID VARCHAR(50) NOT NULL,
-    BatchID VARCHAR(50) NOT NULL,
+    ReceivingItemID INT AUTO_INCREMENT PRIMARY KEY,
+    ReceivingID INT NOT NULL,
+    BatchID INT NOT NULL,
     QuantityReceived INT NOT NULL,
     FOREIGN KEY (ReceivingID) REFERENCES Receiving(ReceivingID) ON DELETE CASCADE,
     FOREIGN KEY (BatchID) REFERENCES CentralInventoryBatch(BatchID) ON DELETE CASCADE
@@ -137,9 +158,10 @@ CREATE TABLE ReceivingItem (
 
 -- 11. Requisition Table
 CREATE TABLE Requisition (
-    RequisitionID VARCHAR(50) PRIMARY KEY,
-    HealthCenterID VARCHAR(50),
-    UserID VARCHAR(50),
+    RequisitionID INT AUTO_INCREMENT PRIMARY KEY,
+    RequisitionNumber VARCHAR(100) UNIQUE, -- Generated e.g. REQ-2026-0001
+    HealthCenterID INT,
+    UserID INT,
     RequestDate DATETIME NOT NULL,
     StatusType VARCHAR(50) DEFAULT 'Pending',
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -149,9 +171,9 @@ CREATE TABLE Requisition (
 
 -- 12. RequisitionItem Table
 CREATE TABLE RequisitionItem (
-    RequisitionItemID VARCHAR(50) PRIMARY KEY,
-    RequisitionID VARCHAR(50) NOT NULL,
-    ItemID VARCHAR(50) NOT NULL,
+    RequisitionItemID INT AUTO_INCREMENT PRIMARY KEY,
+    RequisitionID INT NOT NULL,
+    ItemID INT NOT NULL,
     QuantityRequested INT NOT NULL,
     FOREIGN KEY (RequisitionID) REFERENCES Requisition(RequisitionID) ON DELETE CASCADE,
     FOREIGN KEY (ItemID) REFERENCES Item(ItemID) ON DELETE CASCADE
@@ -159,9 +181,9 @@ CREATE TABLE RequisitionItem (
 
 -- 13. Issuance Table
 CREATE TABLE Issuance (
-    IssuanceID VARCHAR(50) PRIMARY KEY,
-    RequisitionID VARCHAR(50),
-    UserID VARCHAR(50),
+    IssuanceID INT AUTO_INCREMENT PRIMARY KEY,
+    RequisitionID INT,
+    UserID INT,
     IssueDate DATETIME NOT NULL,
     StatusType VARCHAR(50) DEFAULT 'Issued',
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -171,10 +193,10 @@ CREATE TABLE Issuance (
 
 -- 14. IssuanceItem Table
 CREATE TABLE IssuanceItem (
-    IssuanceItemID VARCHAR(50) PRIMARY KEY,
-    IssuanceID VARCHAR(50) NOT NULL,
-    BatchID VARCHAR(50) NOT NULL,
-    RequisitionItemID VARCHAR(50),
+    IssuanceItemID INT AUTO_INCREMENT PRIMARY KEY,
+    IssuanceID INT NOT NULL,
+    BatchID INT NOT NULL,
+    RequisitionItemID INT,
     QuantityIssued INT NOT NULL,
     FOREIGN KEY (IssuanceID) REFERENCES Issuance(IssuanceID) ON DELETE CASCADE,
     FOREIGN KEY (BatchID) REFERENCES CentralInventoryBatch(BatchID) ON DELETE CASCADE,
@@ -183,9 +205,9 @@ CREATE TABLE IssuanceItem (
 
 -- 15. RequisitionAdjustment Table
 CREATE TABLE RequisitionAdjustment (
-    RequisitionAdjustmentID VARCHAR(50) PRIMARY KEY,
-    IssuanceID VARCHAR(50),
-    UserID VARCHAR(50),
+    RequisitionAdjustmentID INT AUTO_INCREMENT PRIMARY KEY,
+    IssuanceID INT,
+    UserID INT,
     AdjustmentType VARCHAR(100),
     AdjustmentDate DATETIME,
     Reason TEXT,
@@ -195,9 +217,9 @@ CREATE TABLE RequisitionAdjustment (
 
 -- 16. RequisitionAdjustmentDetail Table
 CREATE TABLE RequisitionAdjustmentDetail (
-    RADID VARCHAR(50) PRIMARY KEY,
-    RequisitionAdjustmentID VARCHAR(50) NOT NULL,
-    BatchID VARCHAR(50),
+    RADID INT AUTO_INCREMENT PRIMARY KEY,
+    RequisitionAdjustmentID INT NOT NULL,
+    BatchID INT,
     QuantityAdjusted INT,
     FOREIGN KEY (RequisitionAdjustmentID) REFERENCES RequisitionAdjustment(RequisitionAdjustmentID) ON DELETE CASCADE,
     FOREIGN KEY (BatchID) REFERENCES CentralInventoryBatch(BatchID) ON DELETE SET NULL
@@ -205,9 +227,9 @@ CREATE TABLE RequisitionAdjustmentDetail (
 
 -- 17. NoticeOfIssue Table
 CREATE TABLE NoticeOfIssue (
-    IssueID VARCHAR(50) PRIMARY KEY,
-    BatchID VARCHAR(50),
-    UserID VARCHAR(50),
+    IssueID INT AUTO_INCREMENT PRIMARY KEY,
+    BatchID INT,
+    UserID INT,
     ReportDate DATETIME,
     IssueType VARCHAR(100),
     QuantityAffected INT,
@@ -220,9 +242,10 @@ CREATE TABLE NoticeOfIssue (
 
 -- 18. TransactionAuditLog Table
 CREATE TABLE TransactionAuditLog (
-    AuditLogID VARCHAR(50) PRIMARY KEY,
-    UserID VARCHAR(50),
+    AuditLogID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
     ReferenceType VARCHAR(100),
+    ReferenceID INT,
     ActionType VARCHAR(100),
     ActionDate DATETIME,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL
@@ -230,21 +253,20 @@ CREATE TABLE TransactionAuditLog (
 
 -- 19. SecurityLog Table
 CREATE TABLE SecurityLog (
-    SecurityLogID VARCHAR(50) PRIMARY KEY,
-    UserID VARCHAR(50),
+    SecurityLogID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT, -- Nullable for failed logins
     ActionType VARCHAR(100),
     ActionDescription TEXT,
     IPAddress VARCHAR(50),
     ModuleAffected VARCHAR(100),
-    ActionDate DATETIME,
-    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL
+    ActionDate DATETIME
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 20. ApprovalLog Table
 CREATE TABLE ApprovalLog (
-    ApprovalLogID VARCHAR(50) PRIMARY KEY,
-    RequisitionID VARCHAR(50) NOT NULL,
-    UserID VARCHAR(50),
+    ApprovalLogID INT AUTO_INCREMENT PRIMARY KEY,
+    RequisitionID INT NOT NULL,
+    UserID INT,
     Decision VARCHAR(50),
     DecisionDate DATETIME,
     FOREIGN KEY (RequisitionID) REFERENCES Requisition(RequisitionID) ON DELETE CASCADE,
@@ -253,8 +275,8 @@ CREATE TABLE ApprovalLog (
 
 -- 21. Report Table
 CREATE TABLE Report (
-    ReportID VARCHAR(50) PRIMARY KEY,
-    UserID VARCHAR(50),
+    ReportID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT,
     ReportType VARCHAR(100),
     GeneratedDate DATETIME,
     GeneratedForOffice VARCHAR(200),
@@ -262,14 +284,18 @@ CREATE TABLE Report (
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Create indexes for better performance
-CREATE INDEX idx_po_status ON PurchaseOrder(StatusType);
-CREATE INDEX idx_po_date ON PurchaseOrder(PODate);
-CREATE INDEX idx_requisition_status ON Requisition(StatusType);
-CREATE INDEX idx_requisition_date ON Requisition(RequestDate);
-CREATE INDEX idx_inventory_item ON CentralInventoryBatch(ItemID);
-CREATE INDEX idx_inventory_expiry ON CentralInventoryBatch(ExpiryDate);
-CREATE INDEX idx_user_username ON Users(Username);
-CREATE INDEX idx_security_log_date ON SecurityLog(ActionDate);
-CREATE INDEX idx_audit_log_date ON TransactionAuditLog(ActionDate);
-CREATE INDEX idx_report_date ON Report(GeneratedDate);
+-- 22. Notifications Table
+CREATE TABLE Notifications (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp DATETIME NOT NULL,
+    isRead BOOLEAN DEFAULT FALSE,
+    type VARCHAR(50),
+    targetRoles TEXT -- Comma separated roles or null for all
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Indexes
+CREATE INDEX idx_po_status ON ProcurementOrder(StatusType);
+CREATE INDEX idx_req_status ON Requisition(StatusType);
+CREATE INDEX idx_inv_item ON CentralInventoryBatch(ItemID);

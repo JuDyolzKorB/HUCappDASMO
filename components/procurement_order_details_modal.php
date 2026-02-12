@@ -2,11 +2,11 @@
 // components/purchase_order_details_modal.php
 ?>
 
-<div id="poDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4" onclick="if(event.target === this) closePODetailsModal()">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+<div id="poDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closePODetailsModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 my-8" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
-            <h3 id="poModalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Purchase Order Details</h3>
+            <h3 id="poModalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Procurement Order Details</h3>
             <button onclick="closePODetailsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -33,6 +33,22 @@
                 <div class="flex items-center gap-2">
                     <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">PO Date:</p>
                     <p id="poDate" class="text-sm text-slate-700 dark:text-slate-200"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Doc Type:</p>
+                    <p id="poDocTypeDisplay" class="text-sm text-slate-700 dark:text-slate-200"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Contract #:</p>
+                    <p id="poContractDisplay" class="text-sm text-slate-700 dark:text-slate-200"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Contract Period:</p>
+                    <p id="poContractPeriod" class="text-sm text-slate-700 dark:text-slate-200"></p>
+                </div>
+                <div class="flex items-center gap-2 col-span-2">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Contract Amount:</p>
+                    <p id="poContractAmountDisplay" class="text-sm text-slate-700 dark:text-slate-200 font-semibold"></p>
                 </div>
             </div>
 
@@ -81,10 +97,18 @@ let currentPOId = null;
 function openPODetailsModal(po) {
     currentPOId = po.POID;
     
-    document.getElementById('poModalTitle').textContent = `Purchase Order - ${po.PONumber}`;
+    document.getElementById('poModalTitle').textContent = `Procurement Order - ${po.PONumber}`;
     document.getElementById('poSupplier').textContent = po.SupplierName || 'N/A';
     document.getElementById('poHealthCenter').textContent = po.HealthCenterName || 'Central Health Unit';
     document.getElementById('poDate').textContent = new Date(po.PODate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    document.getElementById('poDocTypeDisplay').textContent = po.DocumentType || 'Purchase Order';
+    document.getElementById('poContractDisplay').textContent = po.ContractNumber || 'N/A';
+    
+    // Contract Details
+    const start = po.StartDate ? new Date(po.StartDate).toLocaleDateString() : '';
+    const end = po.EndDate ? new Date(po.EndDate).toLocaleDateString() : '';
+    document.getElementById('poContractPeriod').textContent = (start || end) ? `${start} - ${end}` : 'N/A';
+    document.getElementById('poContractAmountDisplay').textContent = po.ContractAmount ? `₱${parseFloat(po.ContractAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}` : 'N/A';
     
     // Status Badge
     const statusBadge = document.getElementById('poStatusBadge');
@@ -98,7 +122,7 @@ function openPODetailsModal(po) {
     const list = document.getElementById('poItemsList');
     list.innerHTML = '';
     
-    po.PurchaseOrderItems.forEach(item => {
+    po.ProcurementOrderItems.forEach(item => {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors';
         const itemName = item.ItemName || item.ItemID; 
@@ -149,7 +173,7 @@ function closePODetailsModal() {
 }
 
 function updatePOStatus(status) {
-    if (!confirm(`Are you sure you want to ${status.toLowerCase()} this purchase order?`)) return;
+    if (!confirm(`Are you sure you want to ${status.toLowerCase()} this procurement order?`)) return;
     
     const formData = new FormData();
     formData.append('action', 'update_po_status');
@@ -163,7 +187,7 @@ function updatePOStatus(status) {
     .then(r => r.json())
     .then(data => {
         if(data.success) {
-            alert(`Purchase Order ${status} successfully!`);
+            alert(`Procurement Order ${status} successfully!`);
             window.location.reload();
         } else {
             alert(data.message || 'Error updating status');

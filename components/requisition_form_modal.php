@@ -15,13 +15,40 @@ $items = get_data('items');
                 </div>
                 
                 <div class="space-y-6">
-                    <div>
-                        <label for="healthCenterId" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Health Center</label>
-                        <select id="healthCenterId" name="healthCenterId" required class="block w-full pl-3 pr-10 py-2 text-base border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-slate-700 dark:text-white">
-                            <?php foreach ($healthCenters as $hc): ?>
-                                <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <label for="healthCenterId" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Health Center</label>
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="manualHCToggle" class="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" onchange="toggleHCInput(this)">
+                                <label for="manualHCToggle" class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer">Enter Manually</label>
+                            </div>
+                        </div>
+
+                        <!-- Select Dropdown -->
+                        <div id="hcSelectContainer">
+                            <select id="healthCenterId" name="healthCenterId" required class="block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-slate-700 dark:text-white">
+                                <option value="">Select health center...</option>
+                                <?php foreach ($healthCenters as $hc): ?>
+                                    <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- Manual Input Fields -->
+                        <div id="hcManualContainer" class="hidden space-y-3">
+                            <input 
+                                type="text" 
+                                name="healthCenterName" 
+                                id="manualHCName"
+                                placeholder="Health Center Name" 
+                                class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white">
+                            <textarea 
+                                name="healthCenterAddress" 
+                                id="manualHCAddress"
+                                placeholder="Address/Location" 
+                                rows="2"
+                                class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white"></textarea>
+                        </div>
                     </div>
                     
                     <div>
@@ -45,6 +72,28 @@ $items = get_data('items');
 <script>
 const availableItems = <?php echo json_encode($items); ?>;
 
+function toggleHCInput(checkbox) {
+    const selectContainer = document.getElementById('hcSelectContainer');
+    const manualContainer = document.getElementById('hcManualContainer');
+    const select = document.getElementById('healthCenterId');
+    const nameInput = document.getElementById('manualHCName');
+    
+    if (checkbox.checked) {
+        selectContainer.classList.add('hidden');
+        manualContainer.classList.remove('hidden');
+        select.removeAttribute('required');
+        select.value = '';
+        nameInput.setAttribute('required', 'required');
+    } else {
+        selectContainer.classList.remove('hidden');
+        manualContainer.classList.add('hidden');
+        select.setAttribute('required', 'required');
+        nameInput.removeAttribute('required');
+        nameInput.value = '';
+        document.getElementById('manualHCAddress').value = '';
+    }
+}
+
 function openRequisitionFormModal() {
     document.getElementById('requisitionFormModal').classList.remove('hidden');
     // Identify if the container is empty, if so, add one row
@@ -56,6 +105,13 @@ function openRequisitionFormModal() {
 
 function closeRequisitionFormModal() {
     document.getElementById('requisitionFormModal').classList.add('hidden');
+    document.getElementById('requisitionForm').reset();
+    
+    // Reset manual toggle
+    const toggle = document.getElementById('manualHCToggle');
+    if (toggle && toggle.checked) {
+        toggle.click(); // Uncheck and trigger handler
+    }
 }
 
 function addRequisitionItem() {

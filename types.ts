@@ -1,5 +1,5 @@
 
-export type Page = 'Dashboard' | 'Requisitions' | 'Purchase Orders' | 'Receiving' | 'Inventory' | 'Warehouse' | 'Issuance' | 'Adjustments' | 'Reports' | 'Settings' | 'Profile';
+export type Page = 'Dashboard' | 'Requisitions' | 'Procurement Orders' | 'Receiving' | 'Inventory' | 'Warehouse' | 'Issuance' | 'Adjustments' | 'Reports' | 'Settings' | 'Profile';
 export type SettingsPage = 'Profile' | 'Security' | 'Notifications' | 'Appearance' | 'Activity';
 export type Theme = 'Light' | 'Dark' | 'System';
 export type ToastType = 'success' | 'danger' | 'warning' | 'info';
@@ -11,7 +11,7 @@ export interface ToastNotification {
 }
 
 
-export type UserRole = 
+export type UserRole =
   | 'Health Center Staff'
   | 'Administrator'
   | 'Head Pharmacist'
@@ -37,9 +37,9 @@ export interface Item {
 }
 
 export interface HealthCenter {
-    HealthCenterID: string;
-    Name: string;
-    Address: string;
+  HealthCenterID: string;
+  Name: string;
+  Address: string;
 }
 
 export type RequisitionStatus = 'Pending' | 'Approved' | 'Rejected' | 'Processed';
@@ -90,9 +90,9 @@ export interface CentralInventoryBatch {
 export type IssuanceStatus = 'Completed' | 'Partial' | 'Pending';
 
 export interface IssuanceItem {
-  IssuanceItemID: string; 
-  IssuanceID: string; 
-  BatchID: string; 
+  IssuanceItemID: string;
+  IssuanceID: string;
+  BatchID: string;
   RequisitionItemID: string;
   QuantityIssued: number;
 }
@@ -107,24 +107,25 @@ export interface Issuance {
 }
 
 export interface Warehouse {
-    WarehouseID: string;
-    WarehouseName: string;
-    Location: string;
-    WarehouseType?: string;
+  WarehouseID: string;
+  WarehouseName: string;
+  Location: string;
+  WarehouseType?: string;
 }
 
 export interface Supplier {
-    SupplierID: string;
-    Name: string;
-    Address: string;
-    ContactInfo: string;
+  SupplierID: string;
+  Name: string;
+  Address: string;
+  ContactInfo: string;
 }
 
-export interface PurchaseOrderItem {
-    POItemID: string;
-    POID: string;
-    ItemID: string;
-    QuantityOrdered: number;
+export interface ProcurementOrderItem {
+  POItemID: string;
+  POID: string;
+  ItemID: string;
+  QuantityOrdered: number;
+  UnitCost: number;
 }
 
 export interface POApprovalLog {
@@ -136,110 +137,113 @@ export interface POApprovalLog {
   ApproverFullName: string;
 }
 
-export interface PurchaseOrder {
-    POID: string;
-    UserID: string;
-    SupplierID: string;
-    HealthCenterID?: string;
-    PONumber: string;
-    PODate: string;
-    StatusType: POStatus;
-    PurchaseOrderItems: PurchaseOrderItem[];
-    ApprovalLogs: POApprovalLog[];
-    // Denormalized for display
-    SupplierName: string; 
-    HealthCenterName?: string;
+export interface ProcurementOrder {
+  POID: string;
+  UserID: string;
+  SupplierID: string;
+  HealthCenterID?: string;
+  ContractID?: number;
+  DocumentType?: string;
+  PONumber: string;
+  PODate: string;
+  StatusType: POStatus;
+  ProcurementOrderItems: ProcurementOrderItem[];
+  ApprovalLogs: POApprovalLog[];
+  // Denormalized for display
+  SupplierName: string;
+  HealthCenterName?: string;
+  ContractNumber?: string;
 }
 
 
 export interface Receiving {
-    ReceivingID: string;
-    UserID: string;
-    POID: string;
-    ReceivedDate: string;
+  ReceivingID: string;
+  UserID: string;
+  POID: string;
+  ReceivedDate: string;
 }
 
 export interface ReceivingItem {
-    ReceivingItemID: string;
-    ReceivingID: string;
-    BatchID: string;
-    QuantityReceived: number;
+  ReceivingItemID: string;
+  ReceivingID: string;
+  BatchID: string;
+  QuantityReceived: number;
 }
 
 export type IssuedType = 'Damaged' | 'Expired' | 'Count Discrepancy' | 'Other';
 
 export interface NoticeOfIssuance {
-    IssueID: string;
-    BatchID: string;
-    UserID: string;
-    IssuedDate: string;
-    IssuedType: IssuedType;
-    QuantityIssued: number;
-    PhotoPath?: string;
-    StatusType: NoticeOfIssuanceStatus;
-    Remarks?: string;
+  IssueID: string;
+  BatchID: string;
+  UserID: string;
+  IssuedDate: string;
+  IssuedType: IssuedType;
+  QuantityIssued: number;
+  PhotoPath?: string;
+  StatusType: NoticeOfIssuanceStatus;
+  Remarks?: string;
 }
 
 export interface RequisitionAdjustment {
-    RequisitionAdjustmentID: string;
-    RequisitionID: string;
-    UserID: string;
-    AdjustmentType: 'Return to Stock' | 'Correction' | 'Other';
-    AdjustmentDate: string;
-    Reason: string;
+  RequisitionAdjustmentID: string;
+  RequisitionID: string;
+  UserID: string;
+  AdjustmentType: 'Return to Stock' | 'Correction' | 'Other';
+  AdjustmentDate: string;
+  Reason: string;
 }
 
 export interface RequisitionAdjustmentDetail {
-    RADetailID: string; 
-    RequisitionAdjustmentID: string;
-    BatchID: string;
-    QuantityAdjusted: number; // Can be positive (return) or negative (correction)
+  RAD: string;
+  RequisitionAdjustmentID: string;
+  BatchID: string;
+  QuantityAdjusted: number; // Can be positive (return) or negative (correction)
 }
 
 export type ReportType = 'Inventory Valuation' | 'Stock Card & Ledger' | 'Receipt Confirmation';
 export type OfficeType = 'Accounting' | 'COA' | 'GSO' | 'CMO';
 
 export interface Report {
-    ReportID: string;
-    UserID: string;
-    ReportType: ReportType;
-    GeneratedDate: string;
-    GeneratedForOffice: OfficeType;
-    // Denormalized for display
-    GeneratedByFullName: string;
-    data: any; // Snapshot of the report data
+  ReportID: string;
+  UserID: string;
+  ReportType: ReportType;
+  GeneratedDate: string;
+  GeneratedForOffice: OfficeType;
+  // Denormalized for display
+  GeneratedByFullName: string;
+  data: any; // Snapshot of the report data
 }
 
 // Audit and Security Logs
-export type TransactionActionType = 
-    | 'Create Requisition' | 'Approve Requisition' | 'Reject Requisition' | 'Adjust Requisition'
-    | 'Create Purchase Order' | 'Approve Purchase Order' | 'Reject Purchase Order' | 'Receive PO Items' | 'Process Issuance'
-    | 'Inventory Disposal' | 'Adjust Inventory (Requisition Return)'
-    | 'Create Warehouse' | 'Generate Report';
+export type TransactionActionType =
+  | 'Create Requisition' | 'Approve Requisition' | 'Reject Requisition' | 'Adjust Requisition'
+  | 'Create Procurement Order' | 'Approve Procurement Order' | 'Reject Procurement Order' | 'Receive PO Items' | 'Process Issuance'
+  | 'Inventory Disposal' | 'Adjust Inventory (Requisition Return)'
+  | 'Create Warehouse' | 'Generate Report';
 
-export type ReferenceType = 'Requisition' | 'Purchase Order' | 'Issuance' | 'Receiving' | 'Adjustment' | 'Warehouse' | 'Report';
+export type ReferenceType = 'Requisition' | 'Procurement Order' | 'Issuance' | 'Receiving' | 'Adjustment' | 'Warehouse' | 'Report';
 
 export interface TransactionAuditLog {
-    AuditLogID: string;
-    UserID: string;
-    UserFullName: string; // Denormalized
-    ActionType: TransactionActionType;
-    ReferenceType: ReferenceType;
-    ReferenceID: string; // e.g., RequisitionNumber, PONumber
-    ActionDate: string;
+  AuditLogID: string;
+  UserID: string;
+  UserFullName: string; // Denormalized
+  ActionType: TransactionActionType;
+  ReferenceType: ReferenceType;
+  ReferenceID: string; // e.g., RequisitionNumber, PONumber
+  ActionDate: string;
 }
 
 export type SecurityActionType = 'User Login' | 'User Logout' | 'Failed Login';
 
 export interface SecurityLog {
-    SecurityLogID: string;
-    UserID: string;
-    UserFullName: string; // Denormalized
-    ActionType: SecurityActionType;
-    ActionDescription: string;
-    IPAddress: string;
-    MacAddress?: string;
-    ActionDate: string;
+  SecurityLogID: string;
+  UserID: string;
+  UserFullName: string; // Denormalized
+  ActionType: SecurityActionType;
+  ActionDescription: string;
+  IPAddress: string;
+  MacAddress?: string;
+  ActionDate: string;
 }
 
 export type NotificationType = 'requisition' | 'po' | 'inventory' | 'system' | 'alert';

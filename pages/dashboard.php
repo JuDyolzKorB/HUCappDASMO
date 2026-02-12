@@ -28,7 +28,7 @@ switch ($userRole) {
 
 // Global data needed for dashboards
 $requisitions = get_data('requisitions');
-$purchaseOrders = get_data('purchase_orders');
+$procurementOrders = get_data('procurement_orders');
 $inventory = get_data('inventory');
 
 if ($userRole !== 'Administrator' && $dashboardFile) {
@@ -45,7 +45,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
         if ($r['StatusType'] === 'Pending') $stats['pending_reqs']++;
     }
 
-    foreach ($purchaseOrders as $po) {
+    foreach ($procurementOrders as $po) {
         if ($po['StatusType'] === 'Pending') $stats['pending_pos']++;
     }
 
@@ -63,10 +63,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                         <p class="text-slate-400 font-medium max-w-lg">Manage your pharmacy operations with ease. Here's what's happening today in the <span class="text-teal-400 font-bold"><?php echo $role; ?></span> dashboard.</p>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button class="btn bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/10 px-6">
-                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                           New Requisition
-                        </button>
+                        <!-- Removed New Requisition button for Administrator dashboard as requested -->
                     </div>
                 </div>
                 <!-- Decorative element -->
@@ -76,7 +73,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
         
             <!-- KPI Grid -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <div class="stat-card">
+                 <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=requisitions'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -90,21 +87,21 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                 </div>
 
-                 <div class="stat-card">
+                 <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=procurement-orders'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-2xl">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </div>
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-lg">Waitlist</span>
                     </div>
-                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending POs</p>
+                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending Procurement Orders</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_pos']; ?></h3>
                         <span class="text-xs font-bold text-slate-400">Stable</span>
                     </div>
                 </div>
 
-                 <div class="stat-card">
+                 <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=inventory'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>

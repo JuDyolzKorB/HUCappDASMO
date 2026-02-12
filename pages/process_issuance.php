@@ -14,7 +14,7 @@ $items = get_data('items');
 // Find Requisition
 $requisition = null;
 foreach ($requisitions as $r) {
-    if ($r['RequisitionID'] === $reqId) {
+    if ($r['RequisitionID'] == $reqId) {
         $requisition = $r;
         break;
     }
@@ -36,7 +36,7 @@ foreach ($requisition['RequisitionItems'] as $reqItem) {
     // Find matching batches, sorted by ExpiryDate
     $batches = [];
     foreach ($inventory as $batch) {
-        if ($batch['ItemID'] === $itemId && $batch['QuantityOnHand'] > 0) {
+        if ($batch['ItemID'] == $itemId && $batch['QuantityOnHand'] > 0) {
             $batches[] = $batch;
         }
     }
@@ -78,7 +78,7 @@ foreach ($requisition['RequisitionItems'] as $reqItem) {
 
 function getItemName($id, $items) {
     foreach ($items as $i) {
-        if ($i['ItemID'] === $id) return $i['ItemName'];
+        if ($i['ItemID'] == $id) return $i['ItemName'];
     }
     return $id;
 }
@@ -127,10 +127,20 @@ function getItemName($id, $items) {
             <input type="hidden" name="allocationPlan" value='<?php echo json_encode($allocationPlan); ?>'>
             
             <div class="space-y-4">
-                <?php foreach ($allocationPlan as $item): ?>
+                <?php foreach ($allocationPlan as $item): 
+                    $itemName = getItemName($item['itemId'], $items);
+                    $itemUnit = 'N/A';
+                    foreach ($items as $i) {
+                        if ($i['ItemID'] == $item['itemId']) {
+                            $itemUnit = $i['UnitOfMeasure'];
+                            break;
+                        }
+                    }
+                    $isUnit = (strtoupper($itemUnit) === 'UNIT');
+                ?>
                 <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
                     <div class="flex justify-between items-center mb-2">
-                        <h4 class="font-bold text-slate-900 dark:text-white"><?php echo getItemName($item['itemId'], $items); ?></h4>
+                        <h4 class="font-bold text-slate-900 dark:text-white"><?php echo $itemName; ?></h4>
                         <span class="text-sm font-medium <?php echo $item['totalAllocated'] < $item['needed'] ? 'text-red-600' : 'text-green-600'; ?>">
                             Allocated: <?php echo $item['totalAllocated']; ?> / <?php echo $item['needed']; ?>
                         </span>
@@ -151,7 +161,7 @@ function getItemName($id, $items) {
                                 <?php foreach ($item['allocated'] as $alloc): ?>
                                 <tr>
                                     <td class="px-2 py-1 text-slate-700 dark:text-slate-300"><?php echo $alloc['BatchID']; ?></td>
-                                    <td class="px-2 py-1 text-slate-700 dark:text-slate-300"><?php echo $alloc['ExpiryDate']; ?></td>
+                                    <td class="px-2 py-1 text-slate-700 dark:text-slate-300"><?php echo $isUnit ? 'N/A' : $alloc['ExpiryDate']; ?></td>
                                     <td class="px-2 py-1 text-right text-slate-700 dark:text-slate-300"><?php echo $alloc['Quantity']; ?></td>
                                 </tr>
                                 <?php endforeach; ?>
