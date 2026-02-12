@@ -69,6 +69,26 @@ $aggregatedInventory = array_values($aggregatedInventory);
         <?php endif; ?>
     </div>
 
+    <!-- Category Filter Tabs -->
+    <div class="mb-6">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-2">
+            <div class="flex gap-2">
+                <button onclick="filterByCategory('all')" id="tab-all" class="category-tab active-tab px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                    All
+                </button>
+                <button onclick="filterByCategory('medicine')" id="tab-medicine" class="category-tab px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                    Medicine
+                </button>
+                <button onclick="filterByCategory('utility')" id="tab-utility" class="category-tab px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                    Utility
+                </button>
+                <button onclick="filterByCategory('others')" id="tab-others" class="category-tab px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                    Others
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -90,8 +110,17 @@ $aggregatedInventory = array_values($aggregatedInventory);
                     </tr>
                     <?php else: ?>
                         <?php foreach ($aggregatedInventory as $index => $item): ?>
+                        <?php
+                            // Map category for filtering
+                            $filterCategory = 'others';
+                            if ($item['Category'] === 'Medicine') {
+                                $filterCategory = 'medicine';
+                            } elseif ($item['Category'] === 'Supply' || $item['Category'] === 'Equipment') {
+                                $filterCategory = 'utility';
+                            }
+                        ?>
                         <!-- Main Item Row -->
-                        <tr class="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" onclick="toggleBatches('<?php echo $item['ItemID']; ?>')">
+                        <tr class="inventory-row border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" data-category="<?php echo $filterCategory; ?>" onclick="toggleBatches('<?php echo $item['ItemID']; ?>')">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $item['ItemID']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo $item['ItemName']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-primary dark:text-teal-400"><?php echo $item['Category']; ?></td>
@@ -120,7 +149,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
                         </tr>
                         
                         <!-- Expandable Batch Details Row -->
-                        <tr id="batches-<?php echo $item['ItemID']; ?>" class="hidden bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-700">
+                        <tr id="batches-<?php echo $item['ItemID']; ?>" class="batch-row hidden bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-700" data-category="<?php echo $filterCategory; ?>">
                             <td colspan="7" class="px-6 py-4">
                                 <div class="pl-8">
                                     <h4 class="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-3">Batches (First Expiry, First Out)</h4>
@@ -201,7 +230,84 @@ $aggregatedInventory = array_values($aggregatedInventory);
     </div>
 </div>
 
+<style>
+.category-tab {
+    background-color: transparent;
+    color: #64748b;
+}
+
+.category-tab:hover {
+    background-color: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+.active-tab {
+    background-color: #14b8a6;
+    color: white;
+}
+
+.active-tab:hover {
+    background-color: #0d9488;
+    color: white;
+}
+
+.dark .category-tab {
+    color: #94a3b8;
+}
+
+.dark .category-tab:hover {
+    background-color: rgba(20, 184, 166, 0.2);
+    color: #5eead4;
+}
+
+.dark .active-tab {
+    background-color: #14b8a6;
+    color: white;
+}
+
+.dark .active-tab:hover {
+    background-color: #0d9488;
+}
+</style>
+
 <script>
+function filterByCategory(category) {
+    // Update active tab styling
+    document.querySelectorAll('.category-tab').forEach(tab => {
+        tab.classList.remove('active-tab');
+    });
+    document.getElementById('tab-' + category).classList.add('active-tab');
+    
+    // Filter inventory rows
+    const rows = document.querySelectorAll('.inventory-row');
+    const batchRows = document.querySelectorAll('.batch-row');
+    
+    rows.forEach(row => {
+        const rowCategory = row.getAttribute('data-category');
+        if (category === 'all' || rowCategory === category) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+            // Also hide the corresponding batch row if it's expanded
+            const itemId = row.querySelector('td').textContent.trim();
+            const batchRow = document.getElementById('batches-' + itemId);
+            if (batchRow && !batchRow.classList.contains('hidden')) {
+                batchRow.classList.add('hidden');
+                const chevron = document.getElementById('chevron-' + itemId);
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+    });
+    
+    // Hide batch rows for filtered out items
+    batchRows.forEach(row => {
+        const rowCategory = row.getAttribute('data-category');
+        if (category !== 'all' && rowCategory !== category) {
+            row.classList.add('hidden');
+        }
+    });
+}
+
 function toggleBatches(itemId) {
     const batchesRow = document.getElementById('batches-' + itemId);
     const chevron = document.getElementById('chevron-' + itemId);

@@ -2,9 +2,6 @@
 session_start();
 require_once 'includes/db.php';
 require_once 'includes/auth.php';
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(E_ALL);
 
 header('Content-Type: application/json');
 
@@ -195,7 +192,7 @@ try {
                 $newReceiving['ReceivedItems'][] = [
                     'ItemID' => $item['itemId'],
                     'QuantityOnHand' => $qtyReceived,
-                    'ExpiryDate' => $item['expiryDate'], // Assuming expiry is passed from UI
+                    'ExpiryDate' => !empty($item['expiryDate']) ? $item['expiryDate'] : null,
                     'UnitCost' => (float)$item['unitCost'],
                     'DateReceived' => date('Y-m-d'),
                     'WarehouseID' => 1 // Default warehouse
@@ -206,60 +203,82 @@ try {
         $receivings[] = $newReceiving;
         
         // Update PO Status
-        $purchaseOrders = get_data('purchase_orders');
-        foreach ($purchaseOrders as &$po) {
+        $procurementOrders = get_data('procurement_orders');
+        foreach ($procurementOrders as &$po) {
             if ($po['POID'] == $poid) {
                 $po['StatusType'] = 'Completed'; 
                 break;
             }
         }
         
-        if (save_data('purchase_orders', $purchaseOrders) && save_data('receivings', $receivings)) {
+        if (save_data('procurement_orders', $procurementOrders) && save_data('receivings', $receivings)) {
              log_security_event($_SESSION['user']['UserID'], 'Receiving', 'Success', "Received items for PO $poid");
-             logTransaction('Received Items', 'Purchase Order', $poid);
+             logTransaction('Received Items', 'Procurement Order', $poid);
              echo json_encode(['success' => true]);
         } else {
              echo json_encode(['success' => false, 'message' => 'Failed to save updates']);
         }
 
     } elseif ($action === 'create_requisition') {
-        $healthCenterId = $_POST['healthCenterId'] ?? '';
-        $healthCenterName = $_POST['healthCenterName'] ?? '';
-        $healthCenterAddress = $_POST['healthCenterAddress'] ?? '';
-        $items = $_POST['items'] ?? []; 
-        
-        $newReq = [
-            'HealthCenterID' => $healthCenterId,
-            'HealthCenterName' => $healthCenterName,
-            'HealthCenterAddress' => $healthCenterAddress,
-            'UserID' => $_SESSION['user']['UserID'],
-            'RequestDate' => date('Y-m-d H:i:s'),
-            'StatusType' => 'Pending',
-            'RequisitionItems' => []
-        ];
-        
-        foreach($items as $i) {
-            if((int)$i['quantity'] > 0) {
-                $newReq['RequisitionItems'][] = [
-                    'ItemID' => $i['itemId'],
-                    'QuantityRequested' => (int)$i['quantity']
-                ];
+        try {
+            // Validate user session
+            if (!isset($_SESSION['user']) || !isset($_SESSION['user']['UserID'])) {
+                echo json_encode(['success' => false, 'message' => 'User not authenticated']);
+                exit;
             }
-        }
-        
-        if (empty($newReq['RequisitionItems'])) {
-            echo json_encode(['success' => false, 'message' => 'No valid items requested']);
-            exit;
-        }
-        
-        if (save_data('requisitions', [$newReq])) {
-            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Created requisition");
-            echo json_encode(['success' => true]);
-        } else {
-             echo json_encode(['success' => false, 'message' => 'Failed to save requisition']);
+
+            $healthCenterId = $_POST['healthCenterId'] ?? '';
+            $healthCenterName = $_POST['healthCenterName'] ?? '';
+            $healthCenterAddress = $_POST['healthCenterAddress'] ?? '';
+            $items = $_POST['items'] ?? []; 
+            
+            // Validate health center
+            if (empty($healthCenterId) && empty($healthCenterName)) {
+                echo json_encode(['success' => false, 'message' => 'Health center is required']);
+                exit;
+            }
+            
+            // Validate items
+            if (empty($items) || !is_array($items)) {
+                echo json_encode(['success' => false, 'message' => 'No items provided']);
+                exit;
+            }
+            
+            $newReq = [
+                'HealthCenterID' => $healthCenterId,
+                'HealthCenterName' => $healthCenterName,
+                'HealthCenterAddress' => $healthCenterAddress,
+                'UserID' => $_SESSION['user']['UserID'],
+                'RequestDate' => date('Y-m-d H:i:s'),
+                'StatusType' => 'Pending',
+                'RequisitionItems' => []
+            ];
+            
+            foreach($items as $i) {
+                if(isset($i['quantity']) && (int)$i['quantity'] > 0 && isset($i['itemId'])) {
+                    $newReq['RequisitionItems'][] = [
+                        'ItemID' => $i['itemId'],
+                        'QuantityRequested' => (int)$i['quantity']
+                    ];
+                }
+            }
+            
+            if (empty($newReq['RequisitionItems'])) {
+                echo json_encode(['success' => false, 'message' => 'No valid items requested']);
+                exit;
+            }
+            
+            if (save_data('requisitions', [$newReq])) {
+                log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Created requisition with " . count($newReq['RequisitionItems']) . " items");
+                echo json_encode(['success' => true, 'message' => 'Requisition created successfully']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to save requisition to database']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Server error occurred while saving requisition']);
         }
 
-    } elseif ($action === 'create_purchase_order') {
+    } elseif ($action === 'create_procurement_order') {
         // Validate user is logged in
         if (!isset($_SESSION['user'])) {
             echo json_encode(['success' => false, 'message' => 'User not authenticated']);
@@ -267,7 +286,7 @@ try {
         }
         
         $supplierId = $_POST['supplierId'] ?? '';
-        $warehouseId = $_POST['warehouseId'] ?? ''; // Expecting warehouseId now
+        $healthCenterId = $_POST['healthCenterId'] ?? ''; // Changed from WarehouseID
         $items = $_POST['items'] ?? [];
         $quantities = $_POST['quantities'] ?? [];
         $expiryDates = $_POST['expiryDates'] ?? [];
@@ -305,22 +324,27 @@ try {
         $newPO = [
             'UserID' => $_SESSION['user']['UserID'],
             'SupplierID' => $supplierId,
-            'SupplierName' => $supplierName,
-            'SupplierAddress' => $supplierAddress,
-            'WarehouseID' => !empty($warehouseId) ? $warehouseId : 1, // Default to 1 if empty
+            'SupplierName' => $supplierName, // Kept for logic if db.php uses it
+            'SupplierAddress' => $supplierAddress, // Kept for logic if db.php uses it
+            'HealthCenterID' => !empty($healthCenterId) ? $healthCenterId : null,
+            'ContractNumber' => $_POST['contractNumber'] ?? null,
+            'ContractStartDate' => $_POST['contractStartDate'] ?? null,
+            'ContractEndDate' => $_POST['contractEndDate'] ?? null,
+            'ContractAmount' => $_POST['contractAmount'] ?? null,
+            'DocumentType' => $_POST['documentType'] ?? 'PO',
             'PODate' => date('Y-m-d\TH:i:s\Z'),
             'StatusType' => 'Pending',
-            'PurchaseOrderItems' => $poItems
+            'ProcurementOrderItems' => $poItems
         ];
         
-        if (save_data('purchase_orders', [$newPO])) {
-            log_security_event($_SESSION['user']['UserID'], 'Purchase Order', 'Success', 'Created New PO');
+        if (save_data('procurement_orders', [$newPO])) {
+            log_security_event($_SESSION['user']['UserID'], 'Procurement Order', 'Success', 'Created New PO');
             echo json_encode([
                 'success' => true,
-                'message' => 'Purchase order created successfully'
+                'message' => 'Procurement order created successfully'
             ]);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to save purchase order']);
+            echo json_encode(['success' => false, 'message' => 'Failed to save procurement order']);
         }
 
     } elseif ($action === 'update_po_status') {
@@ -339,10 +363,10 @@ try {
         }
         
         global $db;
-        $res = $db->execute("UPDATE PurchaseOrder SET StatusType = ? WHERE POID = ?", [$status, $poId]);
+        $res = $db->execute("UPDATE ProcurementOrder SET StatusType = ? WHERE POID = ?", [$status, $poId]);
         
         if ($res) {
-            log_security_event($_SESSION['user']['UserID'], 'Purchase Order', 'Success', "Updated PO $poId status to $status");
+            log_security_event($_SESSION['user']['UserID'], 'Procurement Order', 'Success', "Updated PO $poId status to $status");
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);
@@ -373,10 +397,186 @@ try {
                 [$reqId, $_SESSION['user']['UserID'], $status, date('Y-m-d H:i:s')]
             );
             
-            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Updated Requisition $reqId status to $status");
+            log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Updated requisition $reqId status to $status");
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
+    } elseif ($action === 'process_issuance') {
+        try {
+            $requisitionId = $_POST['requisitionId'] ?? '';
+            $allocationPlanJson = $_POST['allocationPlan'] ?? '';
+            
+            if (!$requisitionId || !$allocationPlanJson) {
+                echo json_encode(['success' => false, 'message' => 'Missing required parameters']);
+                exit;
+            }
+            
+            $allocationPlan = json_decode($allocationPlanJson, true);
+            if (!$allocationPlan) {
+                echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
+                exit;
+            }
+            
+            global $db;
+            
+            // 1. Create Issuance record
+            $db->execute(
+                "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
+                [$requisitionId, $_SESSION['user']['UserID'], date('Y-m-d H:i:s'), 'Issued']
+            );
+            $issuanceId = $db->lastInsertId();
+            
+            // 2. Process each item allocation
+            foreach ($allocationPlan as $itemPlan) {
+                $reqItemId = $itemPlan['reqItemId'];
+                
+                foreach ($itemPlan['allocated'] as $allocation) {
+                    $batchId = $allocation['BatchID'];
+                    $quantity = $allocation['Quantity'];
+                    
+                    // 2a. Create IssuanceItem record
+                    $db->execute(
+                        "INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
+                        [$issuanceId, $batchId, $reqItemId, $quantity]
+                    );
+                    
+                    // 2b. Update inventory batch (decrease QuantityOnHand, increase QuantityReleased)
+                    $db->execute(
+                        "UPDATE CentralInventoryBatch 
+                         SET QuantityOnHand = QuantityOnHand - ?, 
+                             QuantityReleased = QuantityReleased + ? 
+                         WHERE BatchID = ?",
+                        [$quantity, $quantity, $batchId]
+                    );
+                }
+            }
+            
+            // 3. Update requisition status to Completed
+            $db->execute(
+                "UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?",
+                ['Completed', $requisitionId]
+            );
+            
+            log_security_event($_SESSION['user']['UserID'], 'Issuance', 'Success', "Processed issuance for requisition $requisitionId");
+            echo json_encode(['success' => true, 'message' => 'Issuance processed successfully']);
+            
+        } catch (Exception $e) {
+            error_log("Process issuance error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+        }
+
+    } elseif ($action === 'mark_notifications_read') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+        
+        $userRole = $_SESSION['user']['Role'] ?? 'User';
+        
+        global $db;
+        try {
+            // Mark all notifications for this user's role as read
+            $db->execute(
+                "UPDATE Notifications 
+                 SET isRead = 1 
+                 WHERE (targetRoles IS NULL OR targetRoles = '' OR FIND_IN_SET(?, targetRoles) > 0)",
+                [$userRole]
+            );
+            
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            error_log("Mark notifications read error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+        }
+
+    } elseif ($action === 'update_profile') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $userId = $_SESSION['user']['UserID'];
+        $firstName = $_POST['firstName'] ?? '';
+        $middleName = $_POST['middleName'] ?? '';
+        $lastName = $_POST['lastName'] ?? '';
+
+        global $db;
+        $user = $db->fetchOne("SELECT * FROM Users WHERE UserID = ?", [$userId]);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+
+        $user['FirstName'] = $firstName;
+        $user['MiddleName'] = $middleName;
+        $user['LastName'] = $lastName;
+        $user['FName'] = $firstName; // Consistency
+        $user['MName'] = $middleName;
+        $user['LName'] = $lastName;
+
+        if (save_data('users', [$user])) {
+            $_SESSION['user'] = array_merge($_SESSION['user'], $user);
+            log_security_event($userId, 'Profile Update', 'Success', 'Updated profile information');
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update profile']);
+        }
+
+    } elseif ($action === 'update_password') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $userId = $_SESSION['user']['UserID'];
+        $currPass = $_POST['currentPassword'] ?? '';
+        $newPass = $_POST['newPassword'] ?? '';
+
+        global $db;
+        $user = $db->fetchOne("SELECT * FROM Users WHERE UserID = ?", [$userId]);
+        
+        if (!$user || (!password_verify($currPass, $user['Password']) && $user['Password'] !== $currPass)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid current password']);
+            exit;
+        }
+
+        $user['Password'] = password_hash($newPass, PASSWORD_DEFAULT);
+
+        if (save_data('users', [$user])) {
+            $_SESSION['user']['Password'] = $user['Password'];
+            log_security_event($userId, 'Password Change', 'Success', 'Password updated successfully');
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update password']);
+        }
+
+    } elseif ($action === 'update_settings') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $userId = $_SESSION['user']['UserID'];
+        global $db;
+        $user = $db->fetchOne("SELECT * FROM Users WHERE UserID = ?", [$userId]);
+
+        if (isset($_POST['emailNotifications'])) {
+            $user['EmailNotifications'] = $_POST['emailNotifications'] === 'true' ? 1 : 0;
+        }
+        if (isset($_POST['inAppNotifications'])) {
+            $user['InAppNotifications'] = $_POST['inAppNotifications'] === 'true' ? 1 : 0;
+        }
+        if (isset($_POST['themePreference'])) {
+            $user['ThemePreference'] = $_POST['themePreference'];
+        }
+
+        if (save_data('users', [$user])) {
+            $_SESSION['user'] = array_merge($_SESSION['user'], $user);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update settings']);
         }
 
     } elseif ($action === 'generate_report') {
@@ -449,15 +649,13 @@ try {
              foreach ($receivings as $rcv) {
                  if (isset($rcv['ReceivedItems'])) {
                     foreach ($rcv['ReceivedItems'] as $ri) {
-                        $batchBatch = array_filter($inventory, fn($b) => $b['BatchID'] == $ri['BatchID']);
-                        $batchBatch = reset($batchBatch);
-                        if ($batchBatch && $batchBatch['ItemID'] == $extraId) {
+                        if ($ri['ItemID'] == $extraId) {
                             $stockMoves[] = [
                                 'date' => $rcv['ReceivedDate'],
                                 'type' => 'Receiving',
                                 'ref' => 'PO #' . ($rcv['PONumber'] ?? $rcv['POID']),
-                                'batch' => $ri['BatchID'],
-                                'in' => $ri['QuantityReceived'],
+                                'batch' => $ri['BatchID'] ?? 'N/A',
+                                'in' => (float)$ri['QuantityReceived'],
                                 'out' => 0
                             ];
                         }
@@ -468,29 +666,26 @@ try {
              // 4. Transactions: Issuances
              foreach ($issuances as $iss) {
                  if (isset($iss['IssuedItems'])) {
-                     foreach ($iss['IssuedItems'] as $ii) {
-                         $batchBatch = array_filter($inventory, fn($b) => $b['BatchID'] == $ii['BatchID']);
-                         $batchBatch = reset($batchBatch);
-                         if ($batchBatch && $batchBatch['ItemID'] == $extraId) {
-                            $stockMoves[] = [
-                                'date' => $iss['DateIssued'],
-                                'type' => 'Issuance',
-                                'ref' => 'REQ #' . ($iss['RequisitionNumber'] ?? $iss['RequisitionID']),
-                                'batch' => $ii['BatchID'],
-                                'in' => 0,
-                                'out' => $ii['QuantityIssued']
-                            ];
-                         }
-                     }
+                      foreach ($iss['IssuedItems'] as $ii) {
+                          // Check if this batch belongs to our item
+                          $batchInfo = $db->fetchOne("SELECT ItemID FROM CentralInventoryBatch WHERE BatchID = ?", [$ii['BatchID']]);
+                          if ($batchInfo && $batchInfo['ItemID'] == $extraId) {
+                             $stockMoves[] = [
+                                 'date' => $iss['DateIssued'],
+                                 'type' => 'Issuance',
+                                 'ref' => 'REQ #' . ($iss['RequisitionNumber'] ?? $iss['RequisitionID']),
+                                 'batch' => $ii['BatchID'],
+                                 'in' => 0,
+                                 'out' => (float)$ii['QuantityIssued']
+                             ];
+                          }
+                      }
                  }
              }
              
              // 5. Transactions: Adjustments (Returns/Disposals)
              foreach ($adjustments as $adj) {
-                 // For now, only handle Returns that affect this item
                  if ($adj['Type'] === 'Return') {
-                    // We need to check if this adjustment affects the target item
-                    // Fetch details if not present
                     $details = $adj['Details'] ?? [];
                     foreach ($details as $d) {
                         if ($d['ItemID'] == $extraId) {
@@ -499,10 +694,23 @@ try {
                                 'type' => 'Return',
                                 'ref' => $adj['Reference'],
                                 'batch' => $d['BatchID'],
-                                'in' => $d['QuantityAdjusted'],
+                                'in' => (float)$d['QuantityAdjusted'],
                                 'out' => 0
                             ];
                         }
+                    }
+                 } elseif ($adj['Type'] === 'Disposal') {
+                    // Check if this disposal's batch belongs to our item
+                    $batchInfo = $db->fetchOne("SELECT ItemID FROM CentralInventoryBatch WHERE BatchID = ?", [$adj['BatchID']]);
+                    if ($batchInfo && $batchInfo['ItemID'] == $extraId) {
+                        $stockMoves[] = [
+                            'date' => $adj['Date'],
+                            'type' => 'Disposal',
+                            'ref' => $adj['Reason'] ?: 'Stock Disposal',
+                            'batch' => $adj['BatchID'],
+                            'in' => 0,
+                            'out' => (float)$adj['Quantity']
+                        ];
                     }
                  }
              }
@@ -723,6 +931,45 @@ try {
 
             $db->commit();
             logTransaction('Stock Return', 'RequisitionAdjustment', $adjustmentId);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        }
+
+    } elseif ($action === 'add_inventory_adjustment') {
+        $batchId = $_POST['batchId'] ?? '';
+        $qty = (int)($_POST['quantity'] ?? 0);
+        $reason = $_POST['reason'] ?? '';
+        
+        if (!$batchId || $qty == 0) {
+            echo json_encode(['success' => false, 'message' => 'Batch ID and quantity are required']);
+            exit;
+        }
+
+        global $db;
+        $db->beginTransaction();
+        try {
+            // 1. Create InventoryAdjustment
+            $db->execute(
+                "INSERT INTO InventoryAdjustment (BatchID, UserID, AdjustmentQuantity, Reason, AdjustmentDate) 
+                 VALUES (?, ?, ?, ?, ?)",
+                [$batchId, $_SESSION['user']['UserID'], $qty, $reason, date('Y-m-d H:i:s')]
+            );
+            $adjustmentId = $db->lastInsertId();
+
+            // 2. Update Inventory
+            // For "Unused Stock" or manual positive adjustments, we increase QuantityOnHand
+            // If the user purposefully wants to decrease, qty should be negative
+            $db->execute(
+                "UPDATE CentralInventoryBatch 
+                 SET QuantityOnHand = QuantityOnHand + ?, QuantityReleased = QuantityReleased - ? 
+                 WHERE BatchID = ?",
+                [$qty, $qty, $batchId]
+            );
+
+            $db->commit();
+            logTransaction('Manual Adjustment', 'InventoryAdjustment', $adjustmentId);
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
             $db->rollback();

@@ -1,16 +1,16 @@
 <?php
-$purchaseOrders = get_data('purchase_orders');
+$procurementOrders = get_data('procurement_orders');
 ?>
 
 <div class="space-y-6">
     <!-- Consolidated Header: Title & Action -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
-            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Purchase Orders</h2>
+            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Procurement Orders</h2>
             <p class="text-slate-500 font-medium text-sm">Manage procurement and track orders from medical suppliers.</p>
         </div>
         <button onclick="document.getElementById('addPOModal').classList.remove('hidden')" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
-            + New Purchase Order
+            + New Procurement Order
         </button>
     </div>
 
@@ -20,25 +20,27 @@ $purchaseOrders = get_data('purchase_orders');
                 <thead class="bg-slate-50 dark:bg-slate-700">
                     <tr>
                          <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">PO No.</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Contract #</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Supplier</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Warehouse</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Health Center</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Date</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Status</th>
                          <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                     <?php if (empty($purchaseOrders)): ?>
+                     <?php if (empty($procurementOrders)): ?>
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-sm text-slate-500">No purchase orders found.</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-slate-500">No procurement orders found.</td>
                     </tr>
                     <?php else: ?>
                         <?php 
                         $allItems = get_data('items');
                         $suppliers = get_data('suppliers');
-                        $warehouses = get_data('warehouses');
+                        $healthCenters = get_data('health_centers');
                         
-                        foreach ($purchaseOrders as $po): 
+                        foreach ($procurementOrders as $po): 
                             $statusColor = 'bg-slate-100 text-slate-800';
                             if ($po['StatusType'] === 'Approved') $statusColor = 'bg-green-100 text-green-800';
                             if ($po['StatusType'] === 'Pending') $statusColor = 'bg-yellow-100 text-yellow-800';
@@ -54,19 +56,19 @@ $purchaseOrders = get_data('purchase_orders');
                                 }
                             }
                             
-                            // Ensure WarehouseName is populated
-                            if (empty($po['WarehouseName']) && !empty($po['WarehouseID'])) {
-                                foreach ($warehouses as $wh) {
-                                    if ($wh['WarehouseID'] == $po['WarehouseID']) {
-                                        $po['WarehouseName'] = $wh['WarehouseName'];
+                            // Ensure HealthCenterName is populated
+                            if (empty($po['HealthCenterName']) && !empty($po['HealthCenterID'])) {
+                                foreach ($healthCenters as $hc) {
+                                    if ($hc['HealthCenterID'] == $po['HealthCenterID']) {
+                                        $po['HealthCenterName'] = $hc['Name'];
                                         break;
                                     }
                                 }
                             }
                             
                             // Map item names
-                            if (isset($po['PurchaseOrderItems']) && is_array($po['PurchaseOrderItems'])) {
-                                foreach ($po['PurchaseOrderItems'] as &$poi) {
+                            if (isset($po['ProcurementOrderItems']) && is_array($po['ProcurementOrderItems'])) {
+                                foreach ($po['ProcurementOrderItems'] as &$poi) {
                                     foreach ($allItems as $i) {
                                         if ($i['ItemID'] == $poi['ItemID']) {
                                             $poi['ItemName'] = $i['ItemName'];
@@ -79,8 +81,10 @@ $purchaseOrders = get_data('purchase_orders');
                         ?>
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $po['PONumber']; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['DocumentType'] ?? 'PO'; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 font-mono"><?php echo $po['ContractNumber'] ?? 'N/A'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['SupplierName']; ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['WarehouseName'] ?? 'Main Warehouse'; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $po['HealthCenterName'] ?? 'Main Office'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo date('M d, Y', strtotime($po['PODate'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $statusColor; ?>">
@@ -99,5 +103,5 @@ $purchaseOrders = get_data('purchase_orders');
     </div>
 </div>
 
-<?php include 'components/add_purchase_order_modal.php'; ?>
-<?php include 'components/purchase_order_details_modal.php'; ?>
+<?php include 'components/add_procurement_order_modal.php'; ?>
+<?php include 'components/procurement_order_details_modal.php'; ?>

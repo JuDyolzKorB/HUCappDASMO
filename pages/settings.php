@@ -35,11 +35,34 @@ if (!empty($transaction_logs)) {
         showNotification: false,
         notificationMsg: '',
         notificationType: 'success',
+        emailNotify: <?php echo ($user['EmailNotifications'] ?? 1) ? 'true' : 'false'; ?>,
+        inAppNotify: <?php echo ($user['InAppNotifications'] ?? 1) ? 'true' : 'false'; ?>,
+        currentTheme: '<?php echo $user['ThemePreference'] ?? 'system'; ?>',
         notify(msg, type = 'success') {
             this.notificationMsg = msg;
             this.notificationType = type;
             this.showNotification = true;
             setTimeout(() => this.showNotification = false, 3000);
+        },
+        updateSettings(key, value) {
+            const formData = new FormData();
+            formData.append('action', 'update_settings');
+            formData.append(key, value);
+            
+            fetch('api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    this.notify(data.message || 'Error updating settings', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                this.notify('Connection error', 'error');
+            });
         }
      }"
      @notify.window="notify($event.detail.msg, $event.detail.type)"
@@ -212,7 +235,12 @@ if (!empty($transaction_logs)) {
             } else {
                 document.documentElement.classList.remove('dark');
             }
-            window.dispatchEvent(new CustomEvent('notify', { detail: { msg: 'Appearance preference saved!', type: 'success' } }));
+            // Trigger Alpine update
+            const root = document.querySelector('[x-data]');
+            if (root && root.__x) {
+                root.__x.$data.updateSettings('themePreference', theme);
+                root.__x.$data.notify('Appearance preference saved!', 'success');
+            }
         }
         </script>
         <!-- End Scripts -->
@@ -366,7 +394,7 @@ if (!empty($transaction_logs)) {
         </div>
 
         <!-- Appearance Tab -->
-        <div x-show="activeTab === 'appearance'" x-cloak class="animate-fade-in" x-data="{ currentTheme: localStorage.getItem('color-theme') || 'system' }">
+        <div x-show="activeTab === 'appearance'" x-cloak class="animate-fade-in">
             <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm overflow-hidden">
                 <div class="p-10 border-b border-slate-100 dark:border-slate-700/50">
                     <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Appearance</h3>
@@ -424,7 +452,7 @@ if (!empty($transaction_logs)) {
 
 
         <!-- Notifications Tab -->
-        <div x-show="activeTab === 'notifications'" x-cloak class="animate-fade-in" x-data="{ emailNotify: true, inAppNotify: true }">
+        <div x-show="activeTab === 'notifications'" x-cloak class="animate-fade-in">
             <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm overflow-hidden">
                 <div class="p-10 border-b border-slate-100 dark:border-slate-700/50">
                     <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Notification Settings</h3>
@@ -438,7 +466,7 @@ if (!empty($transaction_logs)) {
                             <h4 class="text-lg font-bold text-slate-800 dark:text-white mb-1">Email Notifications</h4>
                             <p class="text-sm text-slate-400 font-medium">Receive alerts and updates in your inbox.</p>
                         </div>
-                        <button @click="emailNotify = !emailNotify" 
+                        <button @click="emailNotify = !emailNotify; updateSettings('emailNotifications', emailNotify)" 
                             :class="emailNotify ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-700'"
                             class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none">
                             <span :class="emailNotify ? 'translate-x-6' : 'translate-x-1'"
@@ -452,7 +480,7 @@ if (!empty($transaction_logs)) {
                             <h4 class="text-lg font-bold text-slate-800 dark:text-white mb-1">In-App Notifications</h4>
                             <p class="text-sm text-slate-400 font-medium">Show notifications inside the application header.</p>
                         </div>
-                        <button @click="inAppNotify = !inAppNotify" 
+                        <button @click="inAppNotify = !inAppNotify; updateSettings('inAppNotifications', inAppNotify)" 
                             :class="inAppNotify ? 'bg-teal-500' : 'bg-slate-200 dark:bg-slate-700'"
                             class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none">
                             <span :class="inAppNotify ? 'translate-x-6' : 'translate-x-1'"
@@ -462,7 +490,7 @@ if (!empty($transaction_logs)) {
                 </div>
 
                 <div class="bg-slate-50/50 dark:bg-slate-900/50 p-8 flex justify-end">
-                    <button @click="alert('Notification preferences saved!')" class="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-teal-900/10 active:scale-95">Save Preferences</button>
+                    <p class="text-xs text-slate-400 font-medium italic">Settings are saved automatically.</p>
                 </div>
             </div>
         </div>

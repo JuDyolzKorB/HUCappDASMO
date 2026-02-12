@@ -1,22 +1,46 @@
 <?php
 $requisitions = get_data('requisitions');
 
-// Filter requisitions based on role logic if needed
-// For now, simple list
+// Get tab parameter
+$tab = $_GET['tab'] ?? 'active';
+
+// Filter requisitions based on tab
+if ($tab === 'history') {
+    $filteredRequisitions = array_filter($requisitions, function($r) {
+        return in_array($r['StatusType'], ['Completed', 'Rejected']);
+    });
+} else {
+    $filteredRequisitions = array_filter($requisitions, function($r) {
+        return in_array($r['StatusType'], ['Pending', 'Approved']);
+    });
+}
 ?>
 
 <div class="space-y-6">
-    <!-- Consolidated Header: Title & Action -->
+    <!-- Consolidated Header: Title & Tab Navigation -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
-            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Request Queue</h2>
-            <p class="text-slate-500 font-medium text-sm">Monitor and manage all item requests from health centers and departments.</p>
+            <h2 class="text-2xl font-bold text-slate-800 dark:text-white">
+                <?php echo $tab === 'active' ? 'Request Queue' : 'Requisition History'; ?>
+            </h2>
+            <p class="text-slate-500 font-medium text-sm">
+                <?php echo $tab === 'active' ? 'Monitor and manage all item requests from health centers and departments.' : 'Historical records of completed and rejected requisitions.'; ?>
+            </p>
         </div>
-        <?php if ($userRole === 'Administrator' || $userRole === 'Health Center Staff'): ?>
-        <button onclick="openRequisitionFormModal()" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
-            + New Requisition
-        </button>
-        <?php endif; ?>
+        
+        <div class="flex items-center gap-3">
+            <!-- Tab Navigation -->
+            <div class="flex space-x-1 bg-slate-200 dark:bg-slate-700/50 p-1 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                <a href="index.php?page=requisitions&tab=active" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-colors <?php echo $tab === 'active' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-600/50'; ?>">Active</a>
+                <a href="index.php?page=requisitions&tab=history" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-colors <?php echo $tab === 'history' ? 'bg-white dark:bg-slate-600 shadow-sm text-primary dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-600/50'; ?>">History</a>
+            </div>
+            
+            <?php if ($tab === 'active' && ($userRole === 'Administrator' || $userRole === 'Health Center Staff')): ?>
+            <button onclick="openRequisitionFormModal()" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
+                + New Requisition
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- Requisitions Filter/Table -->
@@ -34,18 +58,21 @@ $requisitions = get_data('requisitions');
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                    <?php if (empty($requisitions)): ?>
+                    <?php if (empty($filteredRequisitions)): ?>
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-sm text-slate-500">No requisitions found.</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-slate-500">
+                            <?php echo $tab === 'active' ? 'No active requisitions found.' : 'No requisition history found.'; ?>
+                        </td>
                     </tr>
                     <?php else: ?>
                         <?php 
                         $allItems = get_data('items'); // Load all items to map names
-                        foreach ($requisitions as $r): 
+                        foreach ($filteredRequisitions as $r): 
                             $statusColor = 'bg-slate-100 text-slate-800';
                             if ($r['StatusType'] === 'Approved') $statusColor = 'bg-green-100 text-green-800';
                             if ($r['StatusType'] === 'Rejected') $statusColor = 'bg-red-100 text-red-800';
                             if ($r['StatusType'] === 'Pending') $statusColor = 'bg-yellow-100 text-yellow-800';
+                            if ($r['StatusType'] === 'Completed') $statusColor = 'bg-blue-100 text-blue-800';
                             
                             // Enrich Items with Names for JS
                             foreach ($r['RequisitionItems'] as &$ri) {

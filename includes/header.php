@@ -1,6 +1,35 @@
 <?php
-$notifications = []; // Placeholder for now
+// Fetch notifications for current user
 $user = getCurrentUser();
+$userRole = $user['Role'] ?? 'User';
+
+global $db;
+$notifications = [];
+$unreadCount = 0;
+
+try {
+    // Get notifications for this user's role or all users
+    $allNotifications = $db->fetchAll(
+        "SELECT * FROM Notifications 
+         WHERE (targetRoles IS NULL OR targetRoles = '' OR FIND_IN_SET(?, targetRoles) > 0)
+         ORDER BY timestamp DESC 
+         LIMIT 20",
+        [$userRole]
+    );
+    
+    if ($allNotifications) {
+        $notifications = $allNotifications;
+        // Count unread notifications
+        foreach ($notifications as $notif) {
+            if (!$notif['isRead']) {
+                $unreadCount++;
+            }
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error fetching notifications: " . $e->getMessage());
+    $notifications = [];
+}
 ?>
 <style>[x-cloak] { display: none !important; }</style>
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
@@ -46,17 +75,88 @@ $user = getCurrentUser();
             </button>
             
             <!-- Notifications -->
-            <div class="relative">
-                <button class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all duration-200 relative">
+            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                <button @click="open = !open" class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all duration-200 relative">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <?php if (count($notifications) > 0): ?>
+                    <?php if ($unreadCount > 0): ?>
                     <span class="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center border-2 border-white dark:border-slate-900">
-                        <?php echo count($notifications); ?>
+                        <?php echo $unreadCount; ?>
                     </span>
                     <?php endif; ?>
                 </button>
+                
+                <!-- Notifications Dropdown -->
+                <div x-show="open" 
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50"
+                     style="display: none;">
+                    
+                    <!-- Header -->
+                    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-white">Notifications</h3>
+                        <?php if ($unreadCount > 0): ?>
+                        <span class="text-xs text-slate-500 dark:text-slate-400"><?php echo $unreadCount; ?> unread</span>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <!-- Notifications List -->
+                    <div class="max-h-96 overflow-y-auto">
+                        <?php if (empty($notifications)): ?>
+                        <div class="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                            </svg>
+                            <p>No notifications yet</p>
+                        </div>
+                        <?php else: ?>
+                            <?php foreach ($notifications as $notif): ?>
+                            <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-b-0 <?php echo !$notif['isRead'] ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''; ?>">
+                                <div class="flex items-start gap-3">
+                                    <?php if (!$notif['isRead']): ?>
+                                    <div class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                                    <?php else: ?>
+                                    <div class="w-2 h-2 mt-1.5 flex-shrink-0"></div>
+                                    <?php endif; ?>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-semibold text-slate-800 dark:text-white mb-0.5">
+                                            <?php echo htmlspecialchars($notif['title']); ?>
+                                        </p>
+                                        <p class="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                                            <?php echo htmlspecialchars($notif['message']); ?>
+                                        </p>
+                                        <p class="text-[10px] text-slate-400 dark:text-slate-500">
+                                            <?php 
+                                            $time = strtotime($notif['timestamp']);
+                                            $diff = time() - $time;
+                                            if ($diff < 60) echo 'Just now';
+                                            elseif ($diff < 3600) echo floor($diff / 60) . ' min ago';
+                                            elseif ($diff < 86400) echo floor($diff / 3600) . ' hours ago';
+                                            else echo date('M d, Y', $time);
+                                            ?>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if (!empty($notifications)): ?>
+                    <!-- Footer -->
+                    <div class="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                        <button onclick="markAllAsRead()" class="text-xs text-primary hover:text-cyan-900 dark:hover:text-cyan-400 font-semibold">
+                            Mark all as read
+                        </button>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden md:block"></div>
@@ -170,3 +270,22 @@ $user = getCurrentUser();
         </div>
     </div>
 </div>
+
+<script>
+function markAllAsRead() {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'action=mark_notifications_read'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Reload to update notification count
+        } else {
+            console.error('Failed to mark notifications as read');
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>

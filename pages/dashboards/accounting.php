@@ -10,7 +10,7 @@ foreach ($inventory as $batch) {
 
 $completedPOs = 0;
 $approvedPOs = [];
-foreach ($purchaseOrders as $po) {
+foreach ($procurementOrders as $po) {
     if ($po['StatusType'] === 'Completed') $completedPOs++;
     if ($po['StatusType'] === 'Approved') $approvedPOs[] = $po;
 }
@@ -52,7 +52,7 @@ $receivings = get_data('receivings');
                 </div>
                 <span class="status-badge status-pending">In Verification</span>
             </div>
-            <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">POs Awaiting Completion</p>
+            <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Procurement Orders Awaiting Completion</p>
             <h3 class="text-3xl font-bold text-slate-900 dark:text-white mt-1"><?php echo $completedPOs; ?></h3>
         </div>
 
@@ -72,7 +72,7 @@ $receivings = get_data('receivings');
     <div class="table-container">
         <div class="table-header">
             <div>
-                <h3 class="font-bold text-slate-800 dark:text-white font-display">Approved Purchase Orders</h3>
+                <h3 class="font-bold text-slate-800 dark:text-white font-display">Approved Procurement Orders</h3>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Pending delivery & verification</p>
             </div>
         </div>
@@ -88,7 +88,7 @@ $receivings = get_data('receivings');
                 </thead>
                 <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
                     <?php if (empty($approvedPOs)): ?>
-                        <tr><td colspan="4" class="px-6 py-12 text-center text-slate-500 font-medium">No purchase orders are currently approved and awaiting delivery.</td></tr>
+                        <tr><td colspan="4" class="px-6 py-12 text-center text-slate-500 font-medium">No procurement orders are currently approved and awaiting delivery.</td></tr>
                     <?php else: ?>
                         <?php foreach (array_slice($approvedPOs, 0, 10) as $po): 
                              $approval = null;
@@ -138,7 +138,7 @@ $receivings = get_data('receivings');
                     <?php else: ?>
                         <?php foreach (array_slice($receivings, 0, 10) as $rec): 
                             $poNum = 'N/A';
-                            foreach ($purchaseOrders as $p) { if ($p['POID'] === $rec['POID']) { $poNum = $p['PONumber']; break; } }
+                            foreach ($procurementOrders as $p) { if ($p['POID'] === $rec['POID']) { $poNum = $p['PONumber']; break; } }
                             $recUser = 'Unknown';
                              foreach ($users as $u) { if ($u['UserID'] === $rec['UserID']) { $recUser = $u['FirstName'] . ' ' . $u['LastName']; break; } }
                         ?>

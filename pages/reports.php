@@ -2,7 +2,7 @@
 // Load persistent reports history
 $reports = get_data('reports');
 $items = get_data('items');
-$pos = get_data('purchase_orders');
+$pos = get_data('procurement_orders');
 $completed_pos = array_filter($pos, function($po) {
     return $po['StatusType'] === 'Completed' || $po['StatusType'] === 'Approved'; // Assuming Approved/Completed are valid for receipt
 });
@@ -57,7 +57,7 @@ $jsPOs = array_map(function($p) { return ['id' => $p['POID'], 'label' => $p['PON
                     <!-- Dynamic PO Field for Receipt Confirmation -->
                     <template x-if="reportType === 'receipt_confirmation'">
                         <div class="md:col-span-3 animate-fade-in">
-                            <label for="poNumber" class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Completed Purchase Order</label>
+                            <label for="poNumber" class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Completed Procurement Order</label>
                             <select id="poNumber" name="poNumber" x-ref="poSelect" class="form-select w-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-xl py-3 text-sm font-medium">
                                 <template x-for="po in completedPOs" :key="po.id">
                                     <option :value="po.id" x-text="po.label"></option>

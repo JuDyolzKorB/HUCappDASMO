@@ -8,7 +8,7 @@ try {
 
     // Add SupplierName column if not exists
     try {
-        $conn->exec("ALTER TABLE PurchaseOrder ADD COLUMN SupplierName VARCHAR(200) AFTER SupplierID");
+        $conn->exec("ALTER TABLE ProcurementOrder ADD COLUMN SupplierName VARCHAR(200) AFTER SupplierID");
         echo "Added SupplierName column.\n";
     } catch (PDOException $e) {
         if (strpos($e->getMessage(), 'Duplicate column name') !== false) {
@@ -20,7 +20,7 @@ try {
 
     // Add SupplierAddress column if not exists
     try {
-        $conn->exec("ALTER TABLE PurchaseOrder ADD COLUMN SupplierAddress TEXT AFTER SupplierName");
+        $conn->exec("ALTER TABLE ProcurementOrder ADD COLUMN SupplierAddress TEXT AFTER SupplierName");
         echo "Added SupplierAddress column.\n";
     } catch (PDOException $e) {
         if (strpos($e->getMessage(), 'Duplicate column name') !== false) {
@@ -30,10 +30,8 @@ try {
         }
     }
     
-    // Modify SupplierID to be nullable (ALTER TABLE PurchaseOrder MODIFY SupplierID INT NULL)
-    // It is already nullable in schema.sql (FOREIGN KEY ... ON DELETE SET NULL implies it)
-    // But let's be sure.
-    $conn->exec("ALTER TABLE PurchaseOrder MODIFY SupplierID INT NULL");
+    // Modify SupplierID to be nullable
+    $conn->exec("ALTER TABLE ProcurementOrder MODIFY SupplierID INT NULL");
     echo "Ensured SupplierID is nullable.\n";
 
     echo "Schema update completed successfully.\n";

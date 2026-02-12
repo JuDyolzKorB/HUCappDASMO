@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS PurchaseOrderItem;
 DROP TABLE IF EXISTS PurchaseOrder;
 DROP TABLE IF EXISTS CentralInventoryBatch;
 DROP TABLE IF EXISTS Inventory; -- Legacy check
+DROP TABLE IF EXISTS Contract;
 DROP TABLE IF EXISTS Warehouse;
 DROP TABLE IF EXISTS Item;
 DROP TABLE IF EXISTS Supplier;
@@ -91,30 +92,46 @@ CREATE TABLE CentralInventoryBatch (
     FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 7. PurchaseOrder Table (Restored WarehouseID reference)
-CREATE TABLE PurchaseOrder (
+-- 7. Contract Table
+CREATE TABLE Contract (
+    ContractID INT AUTO_INCREMENT PRIMARY KEY,
+    SupplierID INT,
+    ContractNumber VARCHAR(100) UNIQUE NOT NULL,
+    StartDate DATE,
+    EndDate DATE,
+    ContractAmount DECIMAL(15, 2),
+    StatusType VARCHAR(50) DEFAULT 'Active',
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8. ProcurementOrder Table
+CREATE TABLE ProcurementOrder (
     POID INT AUTO_INCREMENT PRIMARY KEY,
     UserID INT,
     SupplierID INT,
-    WarehouseID INT,
+    HealthCenterID INT,
     PONumber VARCHAR(100) UNIQUE, -- Generated e.g. PO-2026-0001
     PODate DATETIME NOT NULL,
     StatusType VARCHAR(50) DEFAULT 'Pending',
+    ContractID INT, -- Added per previousTurn
+    DocumentType VARCHAR(100), -- Added per previousTurn
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL,
     FOREIGN KEY (SupplierID) REFERENCES Supplier(SupplierID) ON DELETE SET NULL,
-    FOREIGN KEY (WarehouseID) REFERENCES Warehouse(WarehouseID) ON DELETE SET NULL
+    FOREIGN KEY (HealthCenterID) REFERENCES HealthCenters(HealthCenterID) ON DELETE SET NULL,
+    FOREIGN KEY (ContractID) REFERENCES Contract(ContractID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 8. PurchaseOrderItem Table
-CREATE TABLE PurchaseOrderItem (
+-- 8. ProcurementOrderItem Table
+CREATE TABLE ProcurementOrderItem (
     POItemID INT AUTO_INCREMENT PRIMARY KEY,
     POID INT NOT NULL,
     ItemID INT NOT NULL,
     QuantityOrdered INT NOT NULL,
     UnitCost DECIMAL(10, 2),
     ExpiryDate DATE, -- Added back ExpiryDate per requirements
-    FOREIGN KEY (POID) REFERENCES PurchaseOrder(POID) ON DELETE CASCADE,
+    FOREIGN KEY (POID) REFERENCES ProcurementOrder(POID) ON DELETE CASCADE,
     FOREIGN KEY (ItemID) REFERENCES Item(ItemID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -126,7 +143,7 @@ CREATE TABLE Receiving (
     ReceivedDate DATETIME NOT NULL,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL,
-    FOREIGN KEY (POID) REFERENCES PurchaseOrder(POID) ON DELETE SET NULL
+    FOREIGN KEY (POID) REFERENCES ProcurementOrder(POID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 10. ReceivingItem Table
@@ -267,7 +284,18 @@ CREATE TABLE Report (
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 22. Notifications Table
+CREATE TABLE Notifications (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL,
+    timestamp DATETIME NOT NULL,
+    isRead BOOLEAN DEFAULT FALSE,
+    type VARCHAR(50),
+    targetRoles TEXT -- Comma separated roles or null for all
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Indexes
-CREATE INDEX idx_po_status ON PurchaseOrder(StatusType);
+CREATE INDEX idx_po_status ON ProcurementOrder(StatusType);
 CREATE INDEX idx_req_status ON Requisition(StatusType);
 CREATE INDEX idx_inv_item ON CentralInventoryBatch(ItemID);

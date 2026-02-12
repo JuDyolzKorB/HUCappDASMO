@@ -1,15 +1,15 @@
 <?php
-// components/add_purchase_order_modal.php
 $suppliers = get_data('suppliers');
-$warehouses = get_data('warehouses');
+$healthCenters = get_data('health_centers');
 $items = get_data('items');
+$contracts = get_data('contracts');
 ?>
 
 <div id="addPOModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4" onclick="if(event.target === this) closeAddPOModal()">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
-            <h3 class="text-xl font-bold text-slate-900 dark:text-white">New Purchase Order</h3>
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white">New Procurement Order</h3>
             <button onclick="closeAddPOModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -19,9 +19,9 @@ $items = get_data('items');
         
         <!-- Modal Body -->
         <form id="addPOForm" class="p-6 space-y-5">
-            <input type="hidden" name="action" value="create_purchase_order">
+            <input type="hidden" name="action" value="create_procurement_order">
             
-            <!-- Supplier & Warehouse Grid -->
+            <!-- Supplier & Health Center Grid -->
             <div class="grid grid-cols-2 gap-4">
                 <!-- Supplier -->
                 <div class="space-y-2">
@@ -71,20 +71,20 @@ $items = get_data('items');
                     </div>
                 </div>
                 
-                <!-- Warehouse -->
+                <!-- Health Center -->
                 <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poWarehouse">
-                        Warehouse
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poHealthCenter">
+                        Health Center
                     </label>
                     <div class="relative">
                         <select 
                             class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
-                            id="poWarehouse" 
-                            name="warehouseId" 
+                            id="poHealthCenter" 
+                            name="healthCenterId" 
                             required>
-                            <option value="">Select warehouse...</option>
-                            <?php foreach ($warehouses as $wh): ?>
-                                <option value="<?php echo $wh['WarehouseID']; ?>"><?php echo $wh['WarehouseName']; ?></option>
+                            <option value="">Select health center...</option>
+                            <?php foreach ($healthCenters as $hc): ?>
+                                <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
                             <?php endforeach; ?>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -92,6 +92,89 @@ $items = get_data('items');
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document & Contract Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <!-- Document Type -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poDocumentType">
+                        Document Type
+                    </label>
+                    <div class="relative">
+                        <select 
+                            class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
+                            id="poDocumentType" 
+                            name="documentType" 
+                            required>
+                            <option value="Purchase Order">Purchase Order</option>
+                            <option value="Letter of Request">Letter of Request</option>
+                            <option value="Requisition Order">Requisition Order</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contract Number -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractNumber">
+                        Contract Number
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
+                            id="poContractNumber" 
+                            name="contractNumber"
+                            placeholder="Enter contract number...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contract Details Grid (Newly added) -->
+            <div class="grid grid-cols-3 gap-4 pt-1 transition-all">
+                 <!-- Start Date -->
+                 <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractStartDate">
+                        Start Date
+                    </label>
+                    <input 
+                        type="date" 
+                        class="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
+                        id="poContractStartDate" 
+                        name="contractStartDate">
+                </div>
+                <!-- End Date -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractEndDate">
+                        End Date
+                    </label>
+                    <input 
+                        type="date" 
+                        class="w-full px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
+                        id="poContractEndDate" 
+                        name="contractEndDate">
+                </div>
+                <!-- Amount -->
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractAmount">
+                        Contract Amount
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₱</span>
+                        <input 
+                            type="number" 
+                            step="0.01"
+                            class="w-full pl-7 pr-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
+                            id="poContractAmount" 
+                            name="contractAmount"
+                            placeholder="0.00">
                     </div>
                 </div>
             </div>
@@ -112,8 +195,17 @@ $items = get_data('items');
                                 onchange="toggleExpiry(this)"
                                 required>
                                 <option value="">Select item...</option>
-                                <?php foreach ($items as $item): ?>
-                                    <option value="<?php echo $item['ItemID']; ?>"><?php echo $item['ItemID'] . ' - ' . $item['ItemName']; ?></option>
+                                <?php 
+                                $groups = [];
+                                foreach ($items as $item) {
+                                    $groups[$item['ItemType'] ?: 'Others'][] = $item;
+                                }
+                                foreach ($groups as $type => $typeItems): ?>
+                                    <optgroup label="<?php echo $type; ?>">
+                                        <?php foreach ($typeItems as $item): ?>
+                                            <option value="<?php echo $item['ItemID']; ?>"><?php echo $item['ItemName']; ?></option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
                                 <?php endforeach; ?>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -168,7 +260,7 @@ $items = get_data('items');
                 <button 
                     type="submit" 
                     class="px-5 py-2.5 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-lg shadow-lg shadow-teal-900/20 transition-all active:scale-95">
-                    Create Purchase Order
+                    Create Procurement Order
                 </button>
             </div>
         </form>
@@ -197,6 +289,10 @@ function toggleSupplierInput(checkbox) {
         document.getElementById('poSupplierAddress').value = '';
     }
 }
+
+document.getElementById('poSupplier').addEventListener('change', function() {
+    // No longer filtering contracts as it's a text input
+});
 
 // Initial item row
 function closeAddPOModal() {
@@ -244,8 +340,13 @@ function addItemRow() {
     const firstRow = container.querySelector('.po-item-row');
     const newRow = firstRow.cloneNode(true);
     
-    // Reset values
-    newRow.querySelectorAll('select, input').forEach(el => el.value = '');
+    // Reset values and state
+    newRow.querySelectorAll('select').forEach(el => el.value = '');
+    newRow.querySelectorAll('input').forEach(el => {
+        el.value = '';
+        el.removeAttribute('disabled');
+        el.classList.remove('opacity-50', 'bg-slate-100');
+    });
     
     container.appendChild(newRow);
 }
@@ -273,15 +374,15 @@ document.getElementById('addPOForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Purchase Order created successfully!');
+            alert('Procurement Order created successfully!');
             window.location.reload();
         } else {
-            alert(data.message || 'Error creating purchase order');
+            alert(data.message || 'Error creating procurement order');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('An error occurred while creating the purchase order');
+        alert('An error occurred while creating the procurement order');
     });
 });
 </script>

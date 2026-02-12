@@ -28,7 +28,7 @@ switch ($userRole) {
 
 // Global data needed for dashboards
 $requisitions = get_data('requisitions');
-$purchaseOrders = get_data('purchase_orders');
+$procurementOrders = get_data('procurement_orders');
 $inventory = get_data('inventory');
 
 if ($userRole !== 'Administrator' && $dashboardFile) {
@@ -45,7 +45,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
         if ($r['StatusType'] === 'Pending') $stats['pending_reqs']++;
     }
 
-    foreach ($purchaseOrders as $po) {
+    foreach ($procurementOrders as $po) {
         if ($po['StatusType'] === 'Pending') $stats['pending_pos']++;
     }
 
@@ -87,14 +87,14 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                 </div>
 
-                 <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=purchase-orders'">
+                 <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=procurement-orders'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-2xl">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </div>
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-lg">Waitlist</span>
                     </div>
-                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending POs</p>
+                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending Procurement Orders</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_pos']; ?></h3>
                         <span class="text-xs font-bold text-slate-400">Stable</span>

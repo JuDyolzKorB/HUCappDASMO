@@ -2,8 +2,8 @@
 // components/requisition_details_modal.php
 ?>
 
-<div id="requisitionDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex justify-center items-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl transform transition-all relative">
+<div id="requisitionDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex justify-center items-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl transform transition-all relative my-8">
         <div class="p-6">
             <div class="flex justify-between items-center mb-6">
                 <h3 id="reqModalTitle" class="text-xl font-semibold text-slate-900 dark:text-white">Requisition Details</h3>

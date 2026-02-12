@@ -3,16 +3,16 @@
 
 $poid = $_GET['id'] ?? null;
 if (!$poid) {
-    echo "Purchase Order ID is required.";
+    echo "Procurement Order ID is required.";
     exit;
 }
 
-$purchaseOrders = get_data('purchase_orders');
+$procurementOrders = get_data('procurement_orders');
 $itemsData = get_data('items');
 
 // Find PO
 $purchaseOrder = null;
-foreach ($purchaseOrders as $po) {
+foreach ($procurementOrders as $po) {
     if ($po['POID'] == $poid) {
         $purchaseOrder = $po;
         break;
@@ -20,7 +20,7 @@ foreach ($purchaseOrders as $po) {
 }
 
 if (!$purchaseOrder) {
-    echo "Purchase Order not found.";
+    echo "Procurement Order not found.";
     exit;
 }
 
@@ -37,7 +37,11 @@ function getItemNameById($id, $itemsData) {
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Receive Items</h2>
-            <p class="text-slate-500 font-medium text-sm">Inspecting shipment for Purchase Order <span class="text-teal-600 font-bold"><?php echo $purchaseOrder['PONumber']; ?></span>.</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                <p>Inspecting shipment for <span class="text-teal-600 font-bold"><?php echo $purchaseOrder['PONumber']; ?></span></p>
+                <p>• Type: <span class="font-semibold"><?php echo $purchaseOrder['DocumentType'] ?? 'Procurement Order'; ?></span></p>
+                <p>• Contract: <span class="font-semibold text-slate-700 dark:text-slate-300"><?php echo $purchaseOrder['ContractNumber'] ?? 'N/A'; ?></span></p>
+            </div>
         </div>
         <a href="index.php?page=receiving" class="inline-flex items-center text-sm font-bold text-slate-500 hover:text-teal-600 transition-colors group">
             <svg class="w-4 h-4 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
@@ -63,7 +67,8 @@ function getItemNameById($id, $itemsData) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-                        <?php foreach ($purchaseOrder['PurchaseOrderItems'] as $index => $item): 
+                        <?php foreach ($purchaseOrder['ProcurementOrderItems'] as $index => $item): 
+                            $itemName = $item['ItemName'] ?? 'No Name';
                             // Get item details for unit check
                             $itemUnit = 'N/A';
                             foreach ($itemsData as $i) {

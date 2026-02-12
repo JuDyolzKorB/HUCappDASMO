@@ -24,13 +24,13 @@ if ($page === 'logout') {
 }
 
 // Allowed pages list
-$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'purchase-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers'];
+$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers'];
 
 // Page Title Handling
 $pageTitles = [
     'dashboard' => 'Dashboard',
     'requisitions' => 'Requisitions',
-    'purchase-orders' => 'Purchase Orders',
+    'procurement-orders' => 'Procurement Orders',
     'receiving' => 'Receiving',
     'inventory' => 'Inventory',
     'warehouse' => 'Warehouse Management',
@@ -114,8 +114,12 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
     </style>
     <link rel="stylesheet" href="css/style.css">
     <script>
-        // Check for saved user preference, either in localStorage or system preferences
-        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        // Check for saved user preference
+        const sessionTheme = '<?php echo $_SESSION['user']['ThemePreference'] ?? ''; ?>';
+        const localTheme = localStorage.getItem('color-theme');
+        const theme = localTheme || sessionTheme || 'system';
+
+        if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
         } else {
             document.documentElement.classList.remove('dark');

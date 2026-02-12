@@ -7,7 +7,7 @@ foreach ($requisitions as $r) {
 }
 
 $pendingReceivingCount = 0;
-foreach ($purchaseOrders as $po) {
+foreach ($procurementOrders as $po) {
     if ($po['StatusType'] === 'Approved') $pendingReceivingCount++;
 }
 
@@ -30,9 +30,9 @@ foreach ($inventory as $batch) {
         </div>
         <div class="flex items-center gap-3">
              <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist'): ?>
-             <a href="index.php?page=purchase-orders" class="btn btn-primary px-6">
+             <a href="index.php?page=procurement-orders" class="btn btn-primary px-6">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                New Purchase Order
+                New Procurement Order
             </a>
             <?php endif; ?>
         </div>
@@ -58,7 +58,7 @@ foreach ($inventory as $batch) {
                 </div>
                 <span class="status-badge status-info">Monitoring</span>
             </div>
-            <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">POs Awaiting Receiving</p>
+            <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Procurement Orders Awaiting Receiving</p>
             <h3 class="text-3xl font-bold text-slate-900 dark:text-white mt-1"><?php echo $pendingReceivingCount; ?></h3>
         </div>
 
@@ -133,7 +133,7 @@ foreach ($inventory as $batch) {
                     </thead>
                     <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
                         <?php 
-                        $pendingReceivingPOs = array_filter($purchaseOrders, function($po) { return $po['StatusType'] === 'Approved'; });
+                        $pendingReceivingPOs = array_filter($procurementOrders, function($po) { return $po['StatusType'] === 'Approved'; });
                          if (empty($pendingReceivingPOs)):
                         ?>
                              <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500 font-medium">No POs awaiting receiving.</td></tr>

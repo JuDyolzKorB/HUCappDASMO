@@ -181,6 +181,57 @@ if ($preSelectedBatch) {
                 </form>
             </div>
         </div>
+
+        <!-- Divider -->
+        <div class="border-t border-dashed border-slate-200 dark:border-slate-700/50 my-2"></div>
+
+        <!-- Section: Unused Inventory Adjustment -->
+        <div class="space-y-6">
+            <div class="space-y-1">
+                <h4 class="text-lg font-bold text-slate-800 dark:text-white">Unused Inventory Adjustment</h4>
+                <p class="text-slate-500 font-medium text-sm">Adjust stock levels for specific batches when items are returned unused from various sources.</p>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm overflow-hidden p-10">
+                <form @submit.prevent="confirmUnusedAdjustment" class="space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Select an item</label>
+                            <select x-model="unusedItem" @change="updateUnusedBatches" required class="form-select bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all">
+                                <option value="">Select an item</option>
+                                <template x-for="item in items" :key="item.ItemID">
+                                    <option :value="item.ItemID" x-text="item.ItemName"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Select a batch</label>
+                            <select x-model="unusedBatch" required :disabled="!unusedItem" class="form-select bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all disabled:opacity-50">
+                                <option value="">Select a batch</option>
+                                <template x-for="batch in filteredUnusedBatches" :key="batch.BatchID">
+                                    <option :value="batch.BatchID" x-text="`${batch.BatchID} (Exp: ${batch.ExpiryDate} | On Hand: ${batch.QuantityOnHand})`"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Unused Quantity to Return</label>
+                            <input type="number" x-model="unusedQty" min="1" required class="form-input bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="1">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Reason</label>
+                            <input type="text" x-model="unusedReason" class="form-input bg-slate-50 border-slate-200 text-sm py-3 px-4 rounded-xl focus:ring-teal-500 focus:border-teal-500 transition-all" placeholder="e.g. Returned from Health Center">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-4">
+                        <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-teal-900/10 active:scale-95">Confirm Adjustment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <div x-show="activeTab === 'history'" x-cloak class="animate-fade-in">
@@ -249,6 +300,12 @@ function adjustmentFlow() {
         searchBatchID: '',
         returnReason: '',
         returnItems: [],
+
+        unusedItem: '',
+        unusedBatch: '',
+        unusedQty: 1,
+        unusedReason: 'Unused Stock',
+        filteredUnusedBatches: [],
 
         init() {
             this.$watch('returnReqID', (val) => {
@@ -319,6 +376,11 @@ function adjustmentFlow() {
             this.selectedBatch = '';
             // Use == for type-insensitive comparison or cast both to string
             this.filteredBatches = this.inventory.filter(b => b.ItemID == this.selectedItem);
+        },
+
+        updateUnusedBatches() {
+            this.unusedBatch = '';
+            this.filteredUnusedBatches = this.inventory.filter(b => b.ItemID == this.unusedItem);
         },
         
         viewAdjustment(adjustment) {
@@ -422,6 +484,30 @@ function adjustmentFlow() {
                 const result = await response.json();
                 if (result.success) {
                     alert('Item return processed! Inventory updated.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (e) {
+                alert('An error occurred.');
+                console.error(e);
+            }
+        },
+
+        async confirmUnusedAdjustment() {
+            if(!this.unusedBatch) return;
+            
+            const formData = new FormData();
+            formData.append('action', 'add_inventory_adjustment');
+            formData.append('batchId', this.unusedBatch);
+            formData.append('quantity', this.unusedQty);
+            formData.append('reason', this.unusedReason);
+            
+            try {
+                const response = await fetch('api.php', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Unused inventory adjustment confirmed!');
                     location.reload();
                 } else {
                     alert('Error: ' + result.message);
