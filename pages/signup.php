@@ -1,9 +1,10 @@
 <?php
 // pages/signup.php
+$healthCenters = get_data('health_centers');
 ?>
-<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false }">
+<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false, role: 'Health Center Staff', isNewHC: false }">
     <div class="auth-card animate-premium-in">
-        <!-- Left Panel - Hero -->
+        <!-- ... (branding panel unchanged) ... -->
         <div class="auth-branding hidden md:flex animated-gradient">
             <div class="logo-container">
                 <img src="assets/img/logo.png" alt="Uswag Logo" class="w-16 h-16">
@@ -47,16 +48,58 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="role" class="block text-sm font-medium text-slate-600 mb-1.5">Role</label>
-                    <select id="role" name="role" required class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
-                        <option value="Administrator">Administrator</option>
-                        <option value="Head Pharmacist">Head Pharmacist</option>
-                        <option value="Health Center Staff">Health Center Staff</option>
-                        <option value="Warehouse Staff">Warehouse Staff</option>
-                        <option value="Accounting Office User">Accounting Office User</option>
-                        <option value="CMO/GSO/COA User">CMO/GSO/COA User</option>
-                    </select>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label for="role" class="block text-sm font-medium text-slate-600 mb-1.5">Role</label>
+                        <select id="role" name="role" required x-model="role" class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
+                            <option value="Administrator">Administrator</option>
+                            <option value="Head Pharmacist">Head Pharmacist</option>
+                            <option value="Health Center Staff">Health Center Staff</option>
+                            <option value="Warehouse Staff">Warehouse Staff</option>
+                            <option value="Accounting Office User">Accounting Office User</option>
+                            <option value="CMO/GSO/COA User">CMO/GSO/COA User</option>
+                        </select>
+                    </div>
+
+                    <div x-show="role === 'Health Center Staff'" x-transition class="space-y-4 pt-2">
+                        <div class="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 shadow-sm">
+                            <div class="flex justify-between items-center mb-3">
+                                <label for="healthCenterId" class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Health Center Assignment</label>
+                                <button type="button" @click="isNewHC = !isNewHC" class="text-[10px] uppercase tracking-widest font-black text-teal-600 hover:text-teal-700 bg-teal-50 px-2 py-1 rounded-md transition-colors">
+                                    <span x-text="isNewHC ? '← Select Existing' : '+ Register New'"></span>
+                                </button>
+                            </div>
+                            
+                            <div x-show="!isNewHC" x-transition>
+                                <select id="healthCenterId" name="healthCenterId" :required="role === 'Health Center Staff' && !isNewHC" class="form-select bg-white border-slate-200 text-sm py-2.5 shadow-sm">
+                                    <option value="">Select health center...</option>
+                                    <?php foreach ($healthCenters as $hc): ?>
+                                        <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo htmlspecialchars($hc['Name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="mt-2 text-[10px] text-slate-400 italic">Select the local health center you are assigned to.</p>
+                            </div>
+
+                            <div x-show="isNewHC" x-transition class="space-y-4">
+                                <input type="hidden" name="isNewHC" :value="isNewHC ? '1' : '0'">
+                                <div class="grid grid-cols-1 gap-3">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Clinic/Center Name</label>
+                                        <input name="newHCName" type="text" :required="role === 'Health Center Staff' && isNewHC" class="form-input bg-white border-slate-200 text-sm py-2.5 shadow-sm placeholder:text-slate-300" placeholder="e.g. Southside District Health Center">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Complete Address</label>
+                                        <input name="newHCAddress" type="text" class="form-input bg-white border-slate-200 text-sm py-2.5 shadow-sm placeholder:text-slate-300" placeholder="Street, Barangay, District, Iloilo City">
+                                    </div>
+                                </div>
+                                <div class="p-2.5 bg-teal-50/50 rounded-lg border border-teal-100/50">
+                                    <p class="text-[10px] text-teal-700 leading-relaxed font-medium">
+                                        ✨ <strong>New Registry:</strong> A dedicated database will be automatically provisioned for this center upon account creation.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div>

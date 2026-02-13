@@ -146,6 +146,29 @@ class Database {
         return $this->conn->commit();
     }
 
+    // Get connection to a specific Health Center database
+    public static function getHCConnection($healthCenterId) {
+        require_once __DIR__ . '/hc_db_manager.php';
+        
+        $dbName = HCDatabaseManager::ensureHealthCenterDatabase($healthCenterId);
+        if (!$dbName) {
+            return null;
+        }
+
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . $dbName . ";charset=" . DB_CHARSET;
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+            return new PDO($dsn, DB_USER, DB_PASS, $options);
+        } catch (PDOException $e) {
+            error_log("HC Database Connection Error: " . $e->getMessage());
+            return null;
+        }
+    }
+
     // Rollback transaction
     public function rollback() {
         return $this->conn->rollBack();
@@ -164,7 +187,7 @@ function get_data($file) {
     
     switch($file) {
         case 'users':
-            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, Username, Password FROM Users");
+            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, HealthCenterID, Username, Password FROM Users");
             
         case 'warehouses':
             return $db->fetchAll("SELECT * FROM Warehouse");
@@ -426,13 +449,17 @@ function save_data($file, $data) {
             foreach ($data as $user) {
                 $id = $user['UserID'] ?? null;
                 if ($id && is_numeric($id)) {
-                     $db->execute(
-                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, Username = ?, Password = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
+                     $hcId = $user['HealthCenterID'] ?? null;
+                     if ($hcId === '') $hcId = null;
+
+                     if (!$db->execute(
+                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, HealthCenterID = ?, Username = ?, Password = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
                             $user['LastName'] ?? $user['LName'],
                             $user['Role'],
+                            $hcId,
                             $user['Username'],
                             $user['Password'],
                             $user['EmailNotifications'] ?? 1,
@@ -440,22 +467,26 @@ function save_data($file, $data) {
                             $user['ThemePreference'] ?? 'system',
                             $id
                         ]
-                    );
+                    )) return false;
                 } else {
-                    $db->execute(
-                        "INSERT INTO Users (FName, MName, LName, Role, Username, Password, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    $hcId = $user['HealthCenterID'] ?? null;
+                    if ($hcId === '') $hcId = null;
+                    
+                    if (!$db->execute(
+                        "INSERT INTO Users (FName, MName, LName, Role, HealthCenterID, Username, Password, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
                             $user['LastName'] ?? $user['LName'],
                             $user['Role'],
+                            $hcId,
                             $user['Username'],
                             $user['Password'],
                             $user['EmailNotifications'] ?? 1,
                             $user['InAppNotifications'] ?? 1,
                             $user['ThemePreference'] ?? 'system'
                         ]
-                    );
+                    )) return false;
                 }
             }
             return true;
@@ -497,13 +528,10 @@ function save_data($file, $data) {
                 // Let's assume for now we just want to update if we can match.
                 
                 if (!$exists) {
-                     // If we are here, it's a new item or one we couldn't match.
-                     // Insert without ID (let DB generate) or if we really need custom ID, we'd need to change schema.
-                     // Assuming DB AutoInc is the source of truth now.
-                     $db->execute(
+                     if (!$db->execute(
                         "INSERT INTO Item (ItemName, ItemType, UnitOfMeasure) VALUES (?, ?, ?)",
                         [$item['ItemName'], $item['ItemType'], $item['UnitOfMeasure']]
-                    );
+                    )) return false;
                 }
             }
             return true;
@@ -516,10 +544,10 @@ function save_data($file, $data) {
                 } else {
                     $existing = $db->fetchOne("SELECT WarehouseID FROM Warehouse WHERE WarehouseName = ?", [$wh['WarehouseName']]);
                     if (!$existing) {
-                        $db->execute(
+                        if (!$db->execute(
                             "INSERT INTO Warehouse (WarehouseName, Location, WarehouseType) VALUES (?, ?, ?)",
                             [$wh['WarehouseName'], $wh['Location'], $wh['WarehouseType']]
-                        );
+                        )) return false;
                     }
                 }
             }
@@ -562,6 +590,17 @@ function save_data($file, $data) {
             }
             return true;
             
+        case 'health_centers':
+            foreach ($data as $hc) {
+                $id = $hc['HealthCenterID'] ?? null;
+                if ($id && is_numeric($id)) {
+                    if (!$db->execute("UPDATE HealthCenters SET Name = ?, Address = ? WHERE HealthCenterID = ?", [$hc['Name'], $hc['Address'] ?? '', $id])) return false;
+                } else {
+                    if (!$db->execute("INSERT INTO HealthCenters (Name, Address) VALUES (?, ?)", [$hc['Name'], $hc['Address'] ?? ''])) return false;
+                }
+            }
+            return true;
+
         case 'procurement_orders':
             foreach ($data as $po) {
                 $id = $po['POID'] ?? null;

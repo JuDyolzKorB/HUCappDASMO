@@ -1,0 +1,30 @@
+--- Issuance ---
+Field                | Type            | Null  | Key  | Default         | Extra          
+-------------------------------------------------------------------------------------
+IssuanceID           | int(11)         | NO    | PRI  |                 | auto_increment 
+RequisitionID        | int(11)         | YES   | MUL  |                 |                
+UserID               | int(11)         | YES   | MUL  |                 |                
+IssueDate            | datetime        | NO    |      |                 |                
+StatusType           | varchar(50)     | YES   |      | Issued          |                
+
+--- IssuanceItem ---
+Field                | Type            | Null  | Key  | Default         | Extra          
+-------------------------------------------------------------------------------------
+IssuanceItemID       | int(11)         | NO    | PRI  |                 | auto_increment 
+IssuanceID           | int(11)         | NO    | MUL  |                 |                
+BatchID              | int(11)         | NO    | MUL  |                 |                
+RequisitionItemID    | int(11)         | YES   | MUL  |                 |                
+QuantityIssued       | int(11)         | NO    |      |                 |                
+
+--- CentralInventoryBatch ---
+Field                | Type            | Null  | Key  | Default         | Extra          
+-------------------------------------------------------------------------------------
+BatchID              | int(11)         | NO    | PRI  |                 | auto_increment 
+ItemID               | int(11)         | NO    | MUL  |                 |                
+WarehouseID          | int(11)         | YES   | MUL  |                 |                
+ExpiryDate           | date            | YES   |      |                 |                
+QuantityOnHand       | int(11)         | NO    |      | 0               |                
+QuantityReleased     | int(11)         | YES   |      | 0               |                
+UnitCost             | decimal(10,2)   | YES   |      |                 |                
+DateReceived         | date            | YES   |      |                 |                
+

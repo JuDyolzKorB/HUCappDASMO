@@ -32,7 +32,19 @@ try {
             $user['LastName'] = $user['LastName'] ?? $user['LName'] ?? '';
             $user['Role'] = $user['Role'] ?? 'User'; // Ensure Role is set
             
+            // Handle Health Center Context (Pre-assigned at Signup)
+            if ($user['Role'] === 'Health Center Staff' && empty($user['HealthCenterID'])) {
+                echo json_encode(['success' => false, 'message' => 'No health center assigned to this account. Please contact an administrator.']);
+                exit;
+            }
+
             $_SESSION['user'] = $user;
+            
+            // Proactively trigger provisioning if a health center is assigned
+            if (isset($user['HealthCenterID'])) {
+                Database::getHCConnection($user['HealthCenterID']);
+            }
+
             log_security_event($user['UserID'], 'Login', 'Success', "User logged in as {$user['Role']}");
             echo json_encode(['success' => true, 'redirect' => 'index.php?page=dashboard']);
         } else {
@@ -40,6 +52,19 @@ try {
             log_security_event('unknown', 'Login', 'Failure', "Failed login attempt for username: $username");
             echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
         }
+    } elseif ($action === 'switch_health_center') {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['Role'] !== 'Administrator') {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+        $hcId = $_POST['healthCenterId'] ?? null;
+        if ($hcId === 'none') {
+            unset($_SESSION['user']['HealthCenterID']);
+        } else {
+            $_SESSION['user']['HealthCenterID'] = $hcId;
+        }
+        echo json_encode(['success' => true]);
+        exit;
     } elseif ($action === 'logout') {
         if (isset($_SESSION['user'])) {
             log_security_event($_SESSION['user']['UserID'], 'Logout', 'Success', 'User logged out');
@@ -52,7 +77,28 @@ try {
         $firstName = $_POST['firstName'] ?? '';
         $middleName = $_POST['middleName'] ?? '';
         $lastName = $_POST['lastName'] ?? '';
-        $role = $_POST['role'] ?? 'Health Center User';
+        $role = $_POST['role'] ?? 'User';
+        $healthCenterId = $_POST['healthCenterId'] ?? null;
+        $isNewHC = ($_POST['isNewHC'] ?? '0') === '1';
+
+        // 1. Handle New Health Center if requested
+        if ($isNewHC && $role === 'Health Center Staff') {
+            $newHCName = $_POST['newHCName'] ?? '';
+            $newHCAddress = $_POST['newHCAddress'] ?? '';
+            if (!empty($newHCName)) {
+                $hcData = [
+                    'Name' => $newHCName,
+                    'Address' => $newHCAddress
+                ];
+                if (save_data('health_centers', [$hcData])) {
+                    global $db;
+                    $healthCenterId = $db->lastInsertId();
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to create new health center']);
+                    exit;
+                }
+            }
+        }
 
         global $db;
         if ($db->find('users', 'Username', $username)) {
@@ -63,13 +109,19 @@ try {
         $newUser = [
             'Username' => $username,
             'Password' => password_hash($password, PASSWORD_DEFAULT),
-            'FirstName' => $firstName,
-            'MiddleName' => $middleName,
-            'LastName' => $lastName,
-            'Role' => $role
+            'FName' => $firstName,
+            'MName' => $middleName,
+            'LName' => $lastName,
+            'Role' => $role,
+            'HealthCenterID' => $healthCenterId
         ];
         
         if (save_data('users', [$newUser])) {
+             // Proactively trigger provisioning if a health center is assigned
+             if ($healthCenterId) {
+                Database::getHCConnection($healthCenterId);
+             }
+
              // UserID is unknown here unless we fetch or refactor save_data to return it.
              // For logs, we can just say 'New User'.
              log_security_event('system', 'Signup', 'Success', "New user registered: $username");
@@ -77,6 +129,20 @@ try {
         } else {
              echo json_encode(['success' => false, 'message' => 'Failed to save user']);
         }
+    } elseif ($action === 'check_username') {
+        $username = $_POST['username'] ?? '';
+        global $db;
+        $user = $db->find('users', 'Username', $username);
+        if ($user) {
+            echo json_encode([
+                'success' => true, 
+                'healthCenterId' => $user['HealthCenterID'] ?? '',
+                'role' => $user['Role'] ?? ''
+            ]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
+        exit;
     } elseif ($action === 'add_warehouse') {
         $newWarehouse = [
             'WarehouseName' => $_POST['warehouseName'] ?? '',
@@ -109,69 +175,6 @@ try {
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save supplier']);
-        }
-
-    } elseif ($action === 'process_issuance') {
-        $reqId = $_POST['requisitionId'] ?? '';
-        $allocationPlan = json_decode($_POST['allocationPlan'] ?? '[]', true);
-        
-        if (!$allocationPlan) {
-            echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
-            exit;
-        }
-        
-        $inventory = get_data('inventory');
-        $issuances = []; // To be saved
-        
-        $newIssuance = [
-            'RequisitionID' => $reqId,
-            'DateIssued' => date('Y-m-d H:i:s'),
-            'IssuedByUserID' => $_SESSION['user']['UserID'],
-            'IssuedItems' => []
-        ];
-        
-        foreach ($allocationPlan as $planItem) {
-             if (empty($planItem['allocated'])) continue;
-
-             foreach ($planItem['allocated'] as $allocatedBatch) {
-                 $batchId = $allocatedBatch['BatchID'] ?? '';
-                 $qtyToIssue = (int)($allocatedBatch['Quantity'] ?? 0);
-
-                 if (!$batchId || $qtyToIssue <= 0) continue;
-
-                 // Deduct from inventory (in memory, then saved)
-                 foreach ($inventory as &$batch) {
-                     if ($batch['BatchID'] == $batchId) { // Loose comparison as ID might be int or string from JSON
-                         $batch['QuantityOnHand'] -= $qtyToIssue;
-                         $batch['QuantityReleased'] = ($batch['QuantityReleased'] ?? 0) + $qtyToIssue;
-                         
-                         $newIssuance['IssuedItems'][] = [
-                             'BatchID' => $batch['BatchID'],
-                             'RequisitionItemID' => $planItem['reqItemId'] ?? null,
-                             'QuantityIssued' => $qtyToIssue
-                         ];
-                         break;
-                     }
-                 }
-             }
-        }
-        
-        $issuances[] = $newIssuance;
-        
-        // Update Requisition Status
-        $requisitions = get_data('requisitions');
-        foreach ($requisitions as &$r) {
-            if ($r['RequisitionID'] == $reqId) {
-                $r['StatusType'] = 'Completed';
-                break;
-            }
-        }
-        
-        if (save_data('inventory', $inventory) && save_data('issuances', $issuances) && save_data('requisitions', $requisitions)) {
-             logTransaction('Issued Items', 'Requisition', $reqId);
-             echo json_encode(['success' => true]);
-        } else {
-             echo json_encode(['success' => false, 'message' => 'Failed to process issuance']);
         }
 
     } elseif ($action === 'receive_items') {
@@ -220,8 +223,8 @@ try {
         }
 
     } elseif ($action === 'create_requisition') {
+        // ... (existing code for central requisitions)
         try {
-            // Validate user session
             if (!isset($_SESSION['user']) || !isset($_SESSION['user']['UserID'])) {
                 echo json_encode(['success' => false, 'message' => 'User not authenticated']);
                 exit;
@@ -232,13 +235,11 @@ try {
             $healthCenterAddress = $_POST['healthCenterAddress'] ?? '';
             $items = $_POST['items'] ?? []; 
             
-            // Validate health center
             if (empty($healthCenterId) && empty($healthCenterName)) {
                 echo json_encode(['success' => false, 'message' => 'Health center is required']);
                 exit;
             }
             
-            // Validate items
             if (empty($items) || !is_array($items)) {
                 echo json_encode(['success' => false, 'message' => 'No items provided']);
                 exit;
@@ -276,6 +277,65 @@ try {
             }
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Server error occurred while saving requisition']);
+        }
+
+    } elseif ($action === 'create_local_requisition') {
+        try {
+            if (!isset($_SESSION['user']) || !isset($_SESSION['user']['UserID'])) {
+                echo json_encode(['success' => false, 'message' => 'User not authenticated']);
+                exit;
+            }
+
+            $user = $_SESSION['user'];
+            $hcId = $user['HealthCenterID'] ?? null;
+            if (!$hcId) {
+                echo json_encode(['success' => false, 'message' => 'No health center assigned to your account']);
+                exit;
+            }
+
+            $hcConn = Database::getHCConnection($hcId);
+            if (!$hcConn) {
+                echo json_encode(['success' => false, 'message' => 'Could not connect to health center database']);
+                exit;
+            }
+
+            $staffName = $_POST['staffName'] ?? '';
+            $items = $_POST['items'] ?? [];
+
+            if (empty($staffName)) {
+                echo json_encode(['success' => false, 'message' => 'Staff name is required']);
+                exit;
+            }
+
+            // 1. Create or Find Staff in local DB
+            $stmt = $hcConn->prepare("SELECT StaffID FROM hc_staff WHERE FirstName = ? LIMIT 1");
+            $stmt->execute([$staffName]);
+            $staff = $stmt->fetch();
+            
+            if ($staff) {
+                $staffId = $staff['StaffID'];
+            } else {
+                $stmt = $hcConn->prepare("INSERT INTO hc_staff (FirstName, LastName, Role, Username, Password) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$staffName, '', 'Staff', strtolower(str_replace(' ', '.', $staffName)), 'nopass']);
+                $staffId = $hcConn->lastInsertId();
+            }
+
+            // 2. Create local requisition
+            $stmt = $hcConn->prepare("INSERT INTO hc_requisition (StaffID, RequestDate, StatusType) VALUES (?, ?, ?)");
+            $stmt->execute([$staffId, date('Y-m-d H:i:s'), 'Pending']);
+            $localReqId = $hcConn->lastInsertId();
+
+            // 3. Add items
+            foreach ($items as $item) {
+                $stmt = $hcConn->prepare("INSERT INTO hc_requisitionitem (HCRequisitionID, ItemID, QuantityRequested) VALUES (?, ?, ?)");
+                $stmt->execute([$localReqId, $item['itemId'], $item['quantity']]);
+            }
+
+            echo json_encode(['success' => true, 'message' => 'Local requisition created successfully']);
+            
+        } catch (Exception $e) {
+            error_log("Local Req Error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         }
 
     } elseif ($action === 'create_procurement_order') {
@@ -421,6 +481,11 @@ try {
             
             global $db;
             
+            // Get Requisition info for HealthCenter link
+            $req = $db->fetchOne("SELECT HealthCenterID FROM Requisition WHERE RequisitionID = ?", [$requisitionId]);
+            $hcId = $req['HealthCenterID'] ?? null;
+            $hcConn = $hcId ? Database::getHCConnection($hcId) : null;
+
             // 1. Create Issuance record
             $db->execute(
                 "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
@@ -432,6 +497,10 @@ try {
             foreach ($allocationPlan as $itemPlan) {
                 $reqItemId = $itemPlan['reqItemId'];
                 
+                // Get ItemID from RequisitionItem
+                $ri = $db->fetchOne("SELECT ItemID FROM RequisitionItem WHERE RequisitionItemID = ?", [$reqItemId]);
+                $itemId = $ri['ItemID'] ?? null;
+
                 foreach ($itemPlan['allocated'] as $allocation) {
                     $batchId = $allocation['BatchID'];
                     $quantity = $allocation['Quantity'];
@@ -450,6 +519,32 @@ try {
                          WHERE BatchID = ?",
                         [$quantity, $quantity, $batchId]
                     );
+
+                    // 2c. Sync to Health Center Database if exists
+                    if ($hcConn && $itemId) {
+                        try {
+                            // Check if item batch already exists in HC inventory
+                            $stmt = $hcConn->prepare("SELECT InventoryID FROM HC_Inventory WHERE BatchID = ?");
+                            $stmt->execute([$batchId]);
+                            $exists = $stmt->fetch();
+
+                            if ($exists) {
+                                $stmt = $hcConn->prepare("UPDATE HC_Inventory SET QuantityOnHand = QuantityOnHand + ? WHERE InventoryID = ?");
+                                $res = $stmt->execute([$quantity, $exists['InventoryID']]);
+                                if (!$res) error_log("Failed to update HC_Inventory for BatchID $batchId");
+                            } else {
+                                // Get expiry from main batch
+                                $mainBatch = $db->fetchOne("SELECT ExpiryDate FROM CentralInventoryBatch WHERE BatchID = ?", [$batchId]);
+                                $expiry = $mainBatch['ExpiryDate'] ?? null;
+
+                                $stmt = $hcConn->prepare("INSERT INTO HC_Inventory (ItemID, BatchID, QuantityOnHand, ExpiryDate) VALUES (?, ?, ?, ?)");
+                                $res = $stmt->execute([$itemId, $batchId, $quantity, $expiry]);
+                                if (!$res) error_log("Failed to insert into HC_Inventory for BatchID $batchId");
+                            }
+                        } catch (PDOException $e) {
+                            error_log("HC Sync Error (Batch $batchId): " . $e->getMessage());
+                        }
+                    }
                 }
             }
             
@@ -1061,6 +1156,88 @@ try {
              echo json_encode(['success' => false, 'message' => 'Item not found']);
         }
 
+    } elseif ($action === 'bulk_import_items') {
+        $newItemsData = $_POST['items'] ?? [];
+        if (!is_array($newItemsData) || empty($newItemsData)) {
+            echo json_encode(['success' => false, 'message' => 'No items provided for import']);
+            exit;
+        }
+
+        $existingItems = get_data('items');
+        
+        // Find current max numeric ID
+        $maxId = 0;
+        foreach ($existingItems as $i) {
+            if (preg_match('/I(\d+)/', $i['ItemID'], $matches)) {
+                $num = (int)$matches[1];
+                if ($num > $maxId) $maxId = $num;
+            }
+        }
+
+        $addedCount = 0;
+        foreach ($newItemsData as $item) {
+            $maxId++;
+            $newItemId = 'I' . str_pad($maxId, 4, '0', STR_PAD_LEFT);
+            
+            $existingItems[] = [
+                'ItemID' => $newItemId,
+                'ItemName' => $item['ItemName'] ?? 'Unnamed Medicine',
+                'ItemType' => $item['ItemType'] ?? 'Medicine',
+                'UnitOfMeasure' => $item['UnitOfMeasure'] ?? 'Unit'
+            ];
+            $addedCount++;
+        }
+
+        if (save_data('items', $existingItems)) {
+            log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Bulk imported $addedCount items via DPRI");
+            echo json_encode(['success' => true, 'count' => $addedCount]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save imported items']);
+        }
+
+    } elseif ($action === 'sync_hc_inventory') {
+        try {
+            if (!isset($_SESSION['user']['HealthCenterID'])) {
+                echo json_encode(['success' => false, 'message' => 'No health center assigned to your account']);
+                exit;
+            }
+
+            $hcId = $_SESSION['user']['HealthCenterID'];
+            $hcConn = Database::getHCConnection($hcId);
+            if (!$hcConn) {
+                echo json_encode(['success' => false, 'message' => 'Could not connect to health center database (Check DatabaseName setting in HealthCenters table)']);
+                exit;
+            }
+
+            global $db;
+            
+            // Get all successful issuances for this health center
+            $sql = "SELECT ii.BatchID, ii.QuantityIssued, b.ItemID, b.ExpiryDate
+                    FROM issuanceitem ii
+                    JOIN issuance i ON ii.IssuanceID = i.IssuanceID
+                    JOIN requisition r ON i.RequisitionID = r.RequisitionID
+                    JOIN centralinventorybatch b ON ii.BatchID = b.BatchID
+                    WHERE r.HealthCenterID = ? AND i.StatusType = 'Issued'";
+            
+            $issuances = $db->fetchAll($sql, [$hcId]);
+            
+            $syncedCount = 0;
+            foreach ($issuances as $iss) {
+                // Check if already in HC inventory
+                $stmt = $hcConn->prepare("SELECT InventoryID FROM hc_inventory WHERE BatchID = ?");
+                $stmt->execute([$iss['BatchID']]);
+                if (!$stmt->fetch()) {
+                    $stmt = $hcConn->prepare("INSERT INTO hc_inventory (ItemID, BatchID, QuantityOnHand, ExpiryDate) VALUES (?, ?, ?, ?)");
+                    if ($stmt->execute([$iss['ItemID'], $iss['BatchID'], $iss['QuantityIssued'], $iss['ExpiryDate']])) {
+                        $syncedCount++;
+                    }
+                }
+            }
+
+            echo json_encode(['success' => true, 'message' => "Successfully synced $syncedCount new items to local inventory."]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Sync error: ' . $e->getMessage()]);
+        }
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
     }

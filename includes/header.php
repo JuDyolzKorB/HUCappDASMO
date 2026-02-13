@@ -65,6 +65,46 @@ try {
                 </div>
                 <?php echo isset($pageTitle) ? $pageTitle : 'Overview'; ?>
             </h1>
+
+            <?php if (isset($user['HealthCenterID'])): 
+                $hc = $db->fetchOne("SELECT Name FROM HealthCenters WHERE HealthCenterID = ?", [$user['HealthCenterID']]);
+                $hcName = $hc['Name'] ?? 'Unknown Health Center';
+            ?>
+                <div class="hidden lg:flex items-center px-3 py-1 bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 rounded-full ml-4">
+                    <span class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tighter mr-2">Center:</span>
+                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300"><?php echo htmlspecialchars($hcName); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <?php if (hasRole('Administrator')): 
+                $allHCs = get_data('health_centers');
+            ?>
+                <div class="hidden xl:block ml-4" x-data="{ switching: false }">
+                    <select onchange="switchHealthCenter(this.value)" class="text-[11px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg py-1 px-2 focus:ring-primary focus:border-primary outline-none transition-all">
+                        <option value="">Switch Health Center...</option>
+                        <?php foreach ($allHCs as $hc): ?>
+                            <option value="<?php echo $hc['HealthCenterID']; ?>" <?php echo (($user['HealthCenterID'] ?? '') == $hc['HealthCenterID']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($hc['Name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                        <option value="none" <?php echo empty($user['HealthCenterID']) ? 'selected' : ''; ?>>None (Central Only)</option>
+                    </select>
+                </div>
+                <script>
+                function switchHealthCenter(hcId) {
+                    const formData = new FormData();
+                    formData.append('action', 'switch_health_center');
+                    formData.append('healthCenterId', hcId);
+                    
+                    fetch('api.php', { method: 'POST', body: formData })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) window.location.reload();
+                        else alert('Failed to switch health center: ' + data.message);
+                    });
+                }
+                </script>
+            <?php endif; ?>
         </div>
 
         <div class="flex items-center space-x-2 md:space-x-5">

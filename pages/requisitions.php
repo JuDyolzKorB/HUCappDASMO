@@ -1,5 +1,16 @@
 <?php
+$user = getCurrentUser();
+$healthCenterId = $user['HealthCenterID'] ?? null;
+$userRole = $user['Role'] ?? 'User';
+
 $requisitions = get_data('requisitions');
+
+// Filter by Health Center if specified
+if ($healthCenterId) {
+    $requisitions = array_filter($requisitions, function($r) use ($healthCenterId) {
+        return $r['HealthCenterID'] == $healthCenterId;
+    });
+}
 
 // Get tab parameter
 $tab = $_GET['tab'] ?? 'active';
