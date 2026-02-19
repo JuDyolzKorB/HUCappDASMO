@@ -2,8 +2,11 @@
 // components/purchase_order_details_modal.php
 ?>
 
-<div id="poDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closePODetailsModal()">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 my-8" onclick="event.stopPropagation()">
+<div id="poDetailsModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closePODetailsModal()">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closePODetailsModal()"></div>
+    
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 my-8 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
             <h3 id="poModalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Procurement Order Details</h3>

@@ -49,8 +49,11 @@ $warehouses = get_data('warehouses');
 </div>
 
 <!-- Add Warehouse Modal -->
-<div id="addWarehouseModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
-    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/60 dark:border-slate-700/60 animate-fade-in" onclick="event.stopPropagation()">
+<div id="addWarehouseModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 no-print">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="document.getElementById('addWarehouseModal').classList.add('hidden')"></div>
+    
+    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
             <h3 class="text-xl font-bold text-slate-900 dark:text-white">New Warehouse</h3>

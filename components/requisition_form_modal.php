@@ -6,8 +6,12 @@ $healthCenters = get_data('health_centers');
 $items = get_data('items');
 ?>
 
-<div id="requisitionFormModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex justify-center items-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl transform transition-all my-8 relative">
+<div id="requisitionFormModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4 overflow-y-auto">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeRequisitionFormModal()"></div>
+    
+    <!-- Modal content -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl transform transition-all my-8 relative animate-in zoom-in-95 duration-200">
         <form id="requisitionForm" onsubmit="handleRequisitionSubmit(event)">
             <input type="hidden" name="action" value="create_requisition">
             <div class="p-6">

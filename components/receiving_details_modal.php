@@ -2,8 +2,11 @@
 // components/receiving_details_modal.php
 ?>
 
-<div id="receivingDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4" onclick="if(event.target === this) closeReceivingDetailsModal()">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+<div id="receivingDetailsModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4" onclick="if(event.target === this) closeReceivingDetailsModal()">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeReceivingDetailsModal()"></div>
+    
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
             <h3 id="receivingModalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Receiving Details</h3>

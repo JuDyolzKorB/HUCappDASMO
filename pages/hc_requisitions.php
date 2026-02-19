@@ -84,8 +84,12 @@ if ($hcConn) {
 </div>
 
 <!-- Local Requisition Modal -->
-<div id="localReqModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden scale-95 transition-all duration-300">
+<div id="localReqModal" class="fixed inset-0 hidden z-[100] flex items-center justify-center p-4">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeLocalReqModal()"></div>
+    
+    <!-- Modal content -->
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative scale-95 transition-all duration-300">
         <form id="localReqForm" onsubmit="handleLocalReqSubmit(event)">
             <input type="hidden" name="action" value="create_local_requisition">
             <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
@@ -119,22 +123,36 @@ if ($hcConn) {
     </div>
 </div>
 
-<script>
-const inventoryItems = <?php 
-    // Fetch local inventory items for the dropdown
-    $itemsForDropdown = [];
-    if ($hcConn) {
+<?php
+// Fetch local inventory for dropdown
+$itemsForDropdown = [];
+if ($hcConn) {
+    try {
         $mainDb = DB_NAME;
-        $stmt = $hcConn->query("SELECT hci.ItemID, i.ItemName, hci.QuantityOnHand 
-                                FROM hc_inventory hci 
-                                JOIN $mainDb.item i ON hci.ItemID = i.ItemID 
-                                WHERE hci.QuantityOnHand > 0");
+        $stmt = $hcConn->query("
+            SELECT hci.ItemID, i.ItemName, SUM(hci.QuantityOnHand) as QuantityOnHand
+            FROM hc_inventory hci
+            LEFT JOIN $mainDb.Item i ON hci.ItemID = i.ItemID
+            WHERE hci.QuantityOnHand > 0
+            GROUP BY hci.ItemID, i.ItemName
+        ");
         $itemsForDropdown = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        error_log("HC Inventory Dropdown Fetch Error: " . $e->getMessage());
     }
-    echo json_encode($itemsForDropdown); 
-?>;
+}
+?>
+<script>
+const inventoryItems = <?php echo json_encode($itemsForDropdown); ?>;
+
+// Move modal to body to escape stacking context of sticky header
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('localReqModal');
+    if (modal) document.body.appendChild(modal);
+});
 
 function openLocalReqModal() {
+
     const modal = document.getElementById('localReqModal');
     modal.classList.remove('hidden');
     setTimeout(() => modal.firstElementChild.classList.remove('scale-95'), 10);

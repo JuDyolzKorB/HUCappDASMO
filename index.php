@@ -24,7 +24,7 @@ if ($page === 'logout') {
 }
 
 // Allowed pages list
-$allowed_pages = ['dashboard', 'requisitions', 'hc_requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'dpri_import'];
+$allowed_pages = ['dashboard', 'requisitions', 'hc_requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'dpri_import', 'hc_patients', 'hc_patient_requisitions'];
 
 // Page Title Handling
 $pageTitles = [
@@ -44,7 +44,9 @@ $pageTitles = [
     'login' => 'Sign In',
     'signup' => 'Sign Up',
     'suppliers' => 'Supplier Management',
-    'dpri_import' => 'DPRI Import'
+    'dpri_import' => 'DPRI Import',
+    'hc_patients' => 'Patients',
+    'hc_patient_requisitions' => 'Patient Requisitions'
 ];
 
 $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
@@ -162,5 +164,6 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
         </main>
     <?php endif; ?>
 
+    <script src="assets/js/realtime.js"></script>
 </body>
 </html>

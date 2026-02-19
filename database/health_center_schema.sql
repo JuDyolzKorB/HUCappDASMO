@@ -33,10 +33,15 @@ CREATE TABLE HC_Inventory (
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 3. Local Requisition Table
--- Requisitions made within the health center (e.g., from staff to their own pharmacy)
-CREATE TABLE HC_Requisition (
-    HCRequisitionID INT AUTO_INCREMENT PRIMARY KEY,
+-- 3. Local Patient Requisition Table
+-- Requisitions made for patients within the health center
+CREATE TABLE PatientRequisition (
+    PatientRequisitionID INT AUTO_INCREMENT PRIMARY KEY,
+    PatientName VARCHAR(255) NOT NULL,
+    PatientAddress TEXT,
+    ContactNumber VARCHAR(20),
+    IDProofPath VARCHAR(255), -- Path to uploaded photo
+    OtherInfo TEXT,
     StaffID INT,
     RequestDate DATETIME NOT NULL,
     StatusType VARCHAR(50) DEFAULT 'Pending',
@@ -45,18 +50,18 @@ CREATE TABLE HC_Requisition (
     FOREIGN KEY (StaffID) REFERENCES HC_Staff(StaffID) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 4. Local Requisition Item Table
-CREATE TABLE HC_RequisitionItem (
-    HCRIID INT AUTO_INCREMENT PRIMARY KEY,
-    HCRequisitionID INT NOT NULL,
+-- 4. Local Patient Requisition Item Table
+CREATE TABLE PatientRequisitionItem (
+    HCPRIID INT AUTO_INCREMENT PRIMARY KEY,
+    PatientRequisitionID INT NOT NULL,
     ItemID INT NOT NULL, -- Central Item ID
     BatchID INT, -- Which batch it was fulfilled from (links to central BatchID)
     QuantityRequested INT NOT NULL,
     QuantityIssued INT DEFAULT 0,
-    FOREIGN KEY (HCRequisitionID) REFERENCES HC_Requisition(HCRequisitionID) ON DELETE CASCADE
+    FOREIGN KEY (PatientRequisitionID) REFERENCES PatientRequisition(PatientRequisitionID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Indexes for performance
 CREATE INDEX idx_hc_inv_item ON HC_Inventory(ItemID);
 CREATE INDEX idx_hc_inv_batch ON HC_Inventory(BatchID);
-CREATE INDEX idx_hc_req_status ON HC_Requisition(StatusType);
+CREATE INDEX idx_pc_req_status ON PatientRequisition(StatusType);
