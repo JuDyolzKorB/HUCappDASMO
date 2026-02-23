@@ -1,5 +1,8 @@
-<div id="reportViewerModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-50 p-4 no-print">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-premium-in">
+<div id="reportViewerModal" class="hidden fixed inset-0 z-[100] flex justify-center items-center p-4 no-print">
+    <!-- Backdrop with blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="document.getElementById('reportViewerModal').classList.add('hidden')"></div>
+    
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col relative animate-in zoom-in-95 duration-200">
         <!-- Progress Bar (Subtle) -->
         <div class="h-1 w-full bg-slate-100 dark:bg-slate-700/50 rounded-t-2xl overflow-hidden">
             <div class="h-full bg-teal-500 w-full"></div>

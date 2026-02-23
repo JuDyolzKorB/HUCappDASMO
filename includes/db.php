@@ -146,9 +146,44 @@ class Database {
         return $this->conn->commit();
     }
 
+    // Get connection to a specific Health Center database
+    public static function getHCConnection($healthCenterId) {
+        require_once __DIR__ . '/hc_db_manager.php';
+        
+        $dbName = HCDatabaseManager::ensureHealthCenterDatabase($healthCenterId);
+        if (!$dbName) {
+            return null;
+        }
+
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . $dbName . ";charset=" . DB_CHARSET;
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+            return new PDO($dsn, DB_USER, DB_PASS, $options);
+        } catch (PDOException $e) {
+            error_log("HC Database Connection Error: " . $e->getMessage());
+            return null;
+        }
+    }
+
     // Rollback transaction
     public function rollback() {
         return $this->conn->rollBack();
+    }
+
+    // Broadcast a system-wide update event for real-time syncing
+    public function broadcastUpdate($eventType, $data = null) {
+        $json = $data ? json_encode($data) : null;
+        try {
+            $stmt = $this->conn->prepare("INSERT INTO SystemUpdates (EventType, EventData) VALUES (?, ?)");
+            return $stmt->execute([$eventType, $json]);
+        } catch (PDOException $e) {
+            error_log("Broadcast Update Error: " . $e->getMessage());
+            return false;
+        }
     }
 }
 
@@ -164,7 +199,7 @@ function get_data($file) {
     
     switch($file) {
         case 'users':
-            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, Username, Password FROM Users");
+            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, HealthCenterID, Username, Password FROM Users");
             
         case 'warehouses':
             return $db->fetchAll("SELECT * FROM Warehouse");
@@ -185,126 +220,61 @@ function get_data($file) {
             return $db->fetchAll("SELECT * FROM CentralInventoryBatch");
             
         case 'procurement_orders':
-            // Get POs with their items (Renamed to ProcurementOrder)
-            $pos = $db->fetchAll("
-                SELECT 
-                    po.*, 
-                    s.Name as SupplierName,
-                    hc.Name as HealthCenterName,
-                    c.ContractNumber as LinkedContractNumber, 
-                    c.StartDate, 
-                    c.EndDate, 
-                    c.ContractAmount 
-                FROM ProcurementOrder po
-                LEFT JOIN Supplier s ON po.SupplierID = s.SupplierID
-                LEFT JOIN HealthCenters hc ON po.HealthCenterID = hc.HealthCenterID
-                LEFT JOIN Contract c ON po.ContractID = c.ContractID
-                ORDER BY po.PODate DESC
-            ");
+            $pos = $db->fetchAll("SELECT po.*, s.Name as SupplierName, hc.Name as HealthCenterName, c.ContractNumber as LinkedContractNumber FROM ProcurementOrder po LEFT JOIN Supplier s ON po.SupplierID = s.SupplierID LEFT JOIN HealthCenters hc ON po.HealthCenterID = hc.HealthCenterID LEFT JOIN Contract c ON po.ContractID = c.ContractID ORDER BY po.PODate DESC");
+            if (empty($pos)) return [];
+            $poIds = array_column($pos, 'POID');
+            $items = $db->fetchAll("SELECT * FROM ProcurementOrderItem WHERE POID IN (" . implode(',', $poIds) . ")");
+            $itemsByPO = [];
+            foreach ($items as $item) { $itemsByPO[$item['POID']][] = $item; }
             foreach ($pos as &$po) {
-                // Use the user-input ContractNumber if available, otherwise use the linked one
-                if (empty($po['ContractNumber']) && !empty($po['LinkedContractNumber'])) {
-                    $po['ContractNumber'] = $po['LinkedContractNumber'];
-                }
-                $po['ProcurementOrderItems'] = $db->fetchAll(
-                    "SELECT * FROM ProcurementOrderItem WHERE POID = ?", 
-                    [$po['POID']]
-                );
+                if (empty($po['ContractNumber']) && !empty($po['LinkedContractNumber'])) $po['ContractNumber'] = $po['LinkedContractNumber'];
+                $po['ProcurementOrderItems'] = $itemsByPO[$po['POID']] ?? [];
                 $po['ApprovalLogs'] = [];
             }
             return $pos;
             
         case 'requisitions':
-            // Get requisitions with their items and approval logs
-            // Join Issuance to get IssuanceID for adjustments
-            $reqs = $db->fetchAll("
-                SELECT r.*, i.IssuanceID 
-                FROM Requisition r 
-                LEFT JOIN Issuance i ON r.RequisitionID = i.RequisitionID
-                ORDER BY r.RequestDate DESC
-            ");
+            $reqs = $db->fetchAll("SELECT r.*, i.IssuanceID, hc.Name as HealthCenterName, u.FName, u.LName FROM Requisition r LEFT JOIN Issuance i ON r.RequisitionID = i.RequisitionID LEFT JOIN HealthCenters hc ON r.HealthCenterID = hc.HealthCenterID LEFT JOIN Users u ON r.UserID = u.UserID ORDER BY r.RequestDate DESC");
+            if (empty($reqs)) return [];
+            $reqIds = array_column($reqs, 'RequisitionID');
+            $issIds = array_filter(array_column($reqs, 'IssuanceID'));
+            
+            $items = $db->fetchAll("SELECT ri.*, i.ItemName FROM RequisitionItem ri JOIN Item i ON ri.ItemID = i.ItemID WHERE ri.RequisitionID IN (" . implode(',', $reqIds) . ")");
+            $itemsByReq = []; foreach ($items as $item) { $itemsByReq[$item['RequisitionID']][] = $item; }
+            
+            $issuedByIss = [];
+            if (!empty($issIds)) {
+                $issued = $db->fetchAll("SELECT ii.*, i.ItemName, cib.ItemID FROM IssuanceItem ii JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID JOIN Item i ON cib.ItemID = i.ItemID WHERE ii.IssuanceID IN (" . implode(',', $issIds) . ")");
+                foreach ($issued as $item) { $issuedByIss[$item['IssuanceID']][] = $item; }
+            }
+            
+            $logs = $db->fetchAll("SELECT al.*, CONCAT(u.FName, ' ', u.LName) as ApprovedByFullName FROM ApprovalLog al LEFT JOIN Users u ON al.UserID = u.UserID WHERE al.RequisitionID IN (" . implode(',', $reqIds) . ") ORDER BY al.DecisionDate DESC");
+            $logsByReq = []; foreach ($logs as $log) { $logsByReq[$log['RequisitionID']][] = $log; }
+            
+            $adjs = $db->fetchAll("SELECT ra.*, i.RequisitionID, CONCAT(u.FName, ' ', u.LName) as AdjustedByFullName FROM RequisitionAdjustment ra JOIN Issuance i ON ra.IssuanceID = i.IssuanceID LEFT JOIN Users u ON ra.UserID = u.UserID WHERE i.RequisitionID IN (" . implode(',', $reqIds) . ") ORDER BY ra.AdjustmentDate DESC");
+            $adjsByReq = []; foreach ($adjs as $adj) { $adjsByReq[$adj['RequisitionID']][] = $adj; }
+
             foreach ($reqs as &$req) {
-                $req['RequisitionItems'] = $db->fetchAll(
-                    "SELECT ri.*, i.ItemName FROM RequisitionItem ri 
-                     JOIN Item i ON ri.ItemID = i.ItemID
-                     WHERE ri.RequisitionID = ?", 
-                    [$req['RequisitionID']]
-                );
-
-                $req['IssuedItems'] = [];
-                if ($req['IssuanceID']) {
-                    $req['IssuedItems'] = $db->fetchAll(
-                        "SELECT ii.*, i.ItemName, cib.ItemID 
-                         FROM IssuanceItem ii
-                         JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
-                         JOIN Item i ON cib.ItemID = i.ItemID
-                         WHERE ii.IssuanceID = ?",
-                        [$req['IssuanceID']]
-                    );
-                }
-
-                $req['ApprovalLogs'] = $db->fetchAll(
-                    "SELECT al.*, CONCAT(u.FName, ' ', u.LName) as ApprovedByFullName 
-                     FROM ApprovalLog al 
-                     LEFT JOIN Users u ON al.UserID = u.UserID
-                     WHERE al.RequisitionID = ? 
-                     ORDER BY al.DecisionDate DESC", 
-                    [$req['RequisitionID']]
-                );
-
-                // Get Adjustments for this requisition
-                // Adjustments are linked to Issuance, which is linked to Requisition
-                $req['Adjustments'] = $db->fetchAll(
-                    "SELECT ra.*, CONCAT(u.FName, ' ', u.LName) as AdjustedByFullName 
-                     FROM RequisitionAdjustment ra
-                     JOIN Issuance i ON ra.IssuanceID = i.IssuanceID
-                     LEFT JOIN Users u ON ra.UserID = u.UserID
-                     WHERE i.RequisitionID = ?
-                     ORDER BY ra.AdjustmentDate DESC",
-                    [$req['RequisitionID']]
-                );
-
-                foreach ($req['Adjustments'] as &$adj) {
-                    $adj['Details'] = $db->fetchAll(
-                        "SELECT rad.*, i.ItemName, i.ItemID, cib.BatchID as BatchLabel
-                         FROM RequisitionAdjustmentDetail rad
-                         LEFT JOIN CentralInventoryBatch cib ON rad.BatchID = cib.BatchID
-                         LEFT JOIN Item i ON cib.ItemID = i.ItemID
-                         WHERE rad.RequisitionAdjustmentID = ?",
-                        [$adj['RequisitionAdjustmentID']]
-                    );
-                }
-                
-                // Get health center name
-                $hc = $db->fetchOne(
-                    "SELECT Name FROM HealthCenters WHERE HealthCenterID = ?", 
-                    [$req['HealthCenterID']]
-                );
-                $req['HealthCenterName'] = $hc['Name'] ?? 'Unknown';
-                
-                // Get user name
-                $user = $db->fetchOne(
-                    "SELECT FName, LName FROM Users WHERE UserID = ?", 
-                    [$req['UserID']]
-                );
-                $req['RequestedByFullName'] = ($user['FName'] ?? '') . ' ' . ($user['LName'] ?? '');
+                $rid = $req['RequisitionID'];
+                $isid = $req['IssuanceID'];
+                $req['RequisitionItems'] = $itemsByReq[$rid] ?? [];
+                $req['IssuedItems'] = ($isid && isset($issuedByIss[$isid])) ? $issuedByIss[$isid] : [];
+                $req['ApprovalLogs'] = $logsByReq[$rid] ?? [];
+                $req['Adjustments'] = $adjsByReq[$rid] ?? [];
+                $req['RequestedByFullName'] = ($req['FName'] ?? '') . ' ' . ($req['LName'] ?? '');
+                if (empty($req['HealthCenterName'])) $req['HealthCenterName'] = 'Unknown';
             }
             return $reqs;
             
         case 'issuances':
-            $issuances = $db->fetchAll("SELECT * FROM Issuance ORDER BY IssueDate DESC");
+            $issuances = $db->fetchAll("SELECT i.*, u.FName, u.LName FROM Issuance i LEFT JOIN Users u ON i.UserID = u.UserID ORDER BY i.IssueDate DESC");
+            if (empty($issuances)) return [];
+            $issIds = array_column($issuances, 'IssuanceID');
+            $items = $db->fetchAll("SELECT * FROM IssuanceItem WHERE IssuanceID IN (" . implode(',', $issIds) . ")");
+            $itemsByIss = []; foreach ($items as $item) { $itemsByIss[$item['IssuanceID']][] = $item; }
             foreach ($issuances as &$iss) {
-                $iss['IssuedItems'] = $db->fetchAll(
-                    "SELECT * FROM IssuanceItem WHERE IssuanceID = ?", 
-                    [$iss['IssuanceID']]
-                );
-                
-                // Get user name
-                $user = $db->fetchOne(
-                    "SELECT FName, LName FROM Users WHERE UserID = ?", 
-                    [$iss['UserID']]
-                );
-                $iss['IssuedByFullName'] = ($user['FName'] ?? '') . ' ' . ($user['LName'] ?? '');
+                $iss['IssuedItems'] = $itemsByIss[$iss['IssuanceID']] ?? [];
+                $iss['IssuedByFullName'] = ($iss['FName'] ?? '') . ' ' . ($iss['LName'] ?? '');
                 $iss['DateIssued'] = $iss['IssueDate'];
                 $iss['IssuedByUserID'] = $iss['UserID'];
             }
@@ -426,13 +396,17 @@ function save_data($file, $data) {
             foreach ($data as $user) {
                 $id = $user['UserID'] ?? null;
                 if ($id && is_numeric($id)) {
-                     $db->execute(
-                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, Username = ?, Password = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
+                     $hcId = $user['HealthCenterID'] ?? null;
+                     if ($hcId === '') $hcId = null;
+
+                     if (!$db->execute(
+                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, HealthCenterID = ?, Username = ?, Password = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
                             $user['LastName'] ?? $user['LName'],
                             $user['Role'],
+                            $hcId,
                             $user['Username'],
                             $user['Password'],
                             $user['EmailNotifications'] ?? 1,
@@ -440,34 +414,34 @@ function save_data($file, $data) {
                             $user['ThemePreference'] ?? 'system',
                             $id
                         ]
-                    );
+                    )) return false;
                 } else {
-                    $db->execute(
-                        "INSERT INTO Users (FName, MName, LName, Role, Username, Password, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    $hcId = $user['HealthCenterID'] ?? null;
+                    if ($hcId === '') $hcId = null;
+                    
+                    if (!$db->execute(
+                        "INSERT INTO Users (FName, MName, LName, Role, HealthCenterID, Username, Password, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
                             $user['LastName'] ?? $user['LName'],
                             $user['Role'],
+                            $hcId,
                             $user['Username'],
                             $user['Password'],
                             $user['EmailNotifications'] ?? 1,
                             $user['InAppNotifications'] ?? 1,
                             $user['ThemePreference'] ?? 'system'
                         ]
-                    );
+                    )) return false;
                 }
             }
+            $db->broadcastUpdate('users_updated');
             return true;
             
         case 'items':
             foreach ($data as $item) {
                 $id = $item['ItemID'] ?? null;
-                
-                // Try to find existing item to update
-                // The API passes the full list of items every time (legacy behavior).
-                // So we must check existence to avoid duplicates.
-                
                 $exists = false;
                 if ($id) {
                     $check = $db->fetchOne("SELECT ItemID FROM Item WHERE ItemID = ?", [$id]);
@@ -480,49 +454,27 @@ function save_data($file, $data) {
                     }
                 }
                 
-                // If not found by ID (or ID is generated like 'I0001' but not in DB yet?)
-                // Note: If API passes 'I0001', we should trust it if we want to maintain the legacy ID format.
-                // But schema has AUTO_INCREMENT on ItemID (INT).
-                // API generates string IDs 'I0001'.
-                // DB Schema violation: ItemID is INT.
-                // This explains why inserts might fail if they pass 'I0001' to an INT column.
-                // Or maybe they pass just the numeric part?
-                // API code: $newItemId = 'I' . str_pad($maxId + 1 ...);
-                // Schema: ItemID INT AUTO_INCREMENT.
-                
-                // Workaround: We cannot insert 'I0001' into INT. 
-                // We should let the DB handle IDs (Auto Inc) or change Schema.
-                // But existing API code relies on IXXXX format. 
-                // If I change API to use DB IDs, I break frontend maybe?
-                // Let's assume for now we just want to update if we can match.
-                
                 if (!$exists) {
-                     // If we are here, it's a new item or one we couldn't match.
-                     // Insert without ID (let DB generate) or if we really need custom ID, we'd need to change schema.
-                     // Assuming DB AutoInc is the source of truth now.
-                     $db->execute(
+                     if (!$db->execute(
                         "INSERT INTO Item (ItemName, ItemType, UnitOfMeasure) VALUES (?, ?, ?)",
                         [$item['ItemName'], $item['ItemType'], $item['UnitOfMeasure']]
-                    );
+                    )) return false;
                 }
             }
+            $db->broadcastUpdate('items_updated');
             return true;
 
         case 'warehouses':
             foreach ($data as $wh) {
                 $id = $wh['WarehouseID'] ?? null;
-                if ($id && is_numeric($id)) {
-                     // Update logic if needed
-                } else {
+                if (!$id || !is_numeric($id)) {
                     $existing = $db->fetchOne("SELECT WarehouseID FROM Warehouse WHERE WarehouseName = ?", [$wh['WarehouseName']]);
                     if (!$existing) {
-                        $db->execute(
-                            "INSERT INTO Warehouse (WarehouseName, Location, WarehouseType) VALUES (?, ?, ?)",
-                            [$wh['WarehouseName'], $wh['Location'], $wh['WarehouseType']]
-                        );
+                        $db->execute("INSERT INTO Warehouse (WarehouseName, Location, WarehouseType) VALUES (?, ?, ?)", [$wh['WarehouseName'], $wh['Location'], $wh['WarehouseType']]);
                     }
                 }
             }
+            $db->broadcastUpdate('warehouses_updated');
             return true;
 
         case 'suppliers':
@@ -534,6 +486,7 @@ function save_data($file, $data) {
                     $db->execute("INSERT INTO Supplier (Name, Address, ContactInfo) VALUES (?, ?, ?)", [$sup['Name'], $sup['Address'] ?? null, $sup['ContactInfo'] ?? null]);
                 }
              }
+             $db->broadcastUpdate('suppliers_updated');
              return true;
             
         case 'inventory':
@@ -543,120 +496,75 @@ function save_data($file, $data) {
                      $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = ?, QuantityReleased = ? WHERE BatchID = ?", 
                         [$batch['QuantityOnHand'], $batch['QuantityReleased'] ?? 0, $id]);
                 } else {
-                     // Resolve ItemID (Handle 'I0001' string format vs INT database ID)
                      $resolvedItemId = $batch['ItemID'];
                      if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
                          $resolvedItemId = (int)$matches[1];
                      }
-                     
                      $db->execute(
                          "INSERT INTO CentralInventoryBatch (ItemID, WarehouseID, ExpiryDate, QuantityOnHand, QuantityReleased, UnitCost, DateReceived) 
                           VALUES (?, ?, ?, ?, ?, ?, ?)",
-                         [
-                             $resolvedItemId, $batch['WarehouseID'] ?? 1, $batch['ExpiryDate'] ?? null,
-                             $batch['QuantityOnHand'], $batch['QuantityReleased'] ?? 0, $batch['UnitCost'] ?? 0,
-                             $batch['DateReceived'] ?? date('Y-m-d')
-                         ]
+                         [$resolvedItemId, $batch['WarehouseID'] ?? 1, $batch['ExpiryDate'] ?? null, $batch['QuantityOnHand'], $batch['QuantityReleased'] ?? 0, $batch['UnitCost'] ?? 0, $batch['DateReceived'] ?? date('Y-m-d')]
                      );
                 }
             }
+            $db->broadcastUpdate('inventory_updated');
             return true;
             
+        case 'health_centers':
+            foreach ($data as $hc) {
+                $id = $hc['HealthCenterID'] ?? null;
+                if ($id && is_numeric($id)) {
+                    $db->execute("UPDATE HealthCenters SET Name = ?, Address = ? WHERE HealthCenterID = ?", [$hc['Name'], $hc['Address'] ?? '', $id]);
+                } else {
+                    $db->execute("INSERT INTO HealthCenters (Name, Address) VALUES (?, ?)", [$hc['Name'], $hc['Address'] ?? '']);
+                }
+            }
+            $db->broadcastUpdate('health_centers_updated');
+            return true;
+
         case 'procurement_orders':
             foreach ($data as $po) {
                 $id = $po['POID'] ?? null;
                 if ($id && is_numeric($id)) {
                     $db->execute("UPDATE ProcurementOrder SET StatusType = ? WHERE POID = ?", [$po['StatusType'], $id]);
                 } else {
-                    // Resolve SupplierID
                     $supplierId = $po['SupplierID'] ?? null;
                     if (empty($supplierId) && !empty($po['SupplierName'])) {
-                        // Try to find existing supplier by name
                         $existingSupplier = $db->fetchOne("SELECT SupplierID FROM Supplier WHERE Name = ?", [$po['SupplierName']]);
                         if ($existingSupplier) {
                             $supplierId = $existingSupplier['SupplierID'];
                         } else {
-                            // Create new supplier
                             $db->execute("INSERT INTO Supplier (Name, Address) VALUES (?, ?)", [$po['SupplierName'], $po['SupplierAddress'] ?? '']);
                             $supplierId = $db->lastInsertId();
                         }
                     }
-
-                    // Resolve ContractID and auto-generate if needed
                     $contractId = null;
                     if (!empty($po['ContractNumber'])) {
                         $existingContract = $db->fetchOne("SELECT ContractID FROM Contract WHERE ContractNumber = ?", [$po['ContractNumber']]);
                         if ($existingContract) {
                             $contractId = $existingContract['ContractID'];
-                            // Update existing contract if dates/amount are provided
-                            if (!empty($po['ContractStartDate']) || !empty($po['ContractEndDate']) || !empty($po['ContractAmount'])) {
-                                $db->execute(
-                                    "UPDATE Contract SET StartDate = ?, EndDate = ?, ContractAmount = ? WHERE ContractID = ?",
-                                    [
-                                        $po['ContractStartDate'] ?: null,
-                                        $po['ContractEndDate'] ?: null,
-                                        $po['ContractAmount'] ?: null,
-                                        $contractId
-                                    ]
-                                );
-                            }
                         } else {
-                            // Create new contract
-                            $db->execute(
-                                "INSERT INTO Contract (SupplierID, ContractNumber, StartDate, EndDate, ContractAmount, StatusType) VALUES (?, ?, ?, ?, ?, ?)",
-                                [
-                                    $supplierId ?: null, 
-                                    $po['ContractNumber'], 
-                                    $po['ContractStartDate'] ?? null,
-                                    $po['ContractEndDate'] ?? null,
-                                    $po['ContractAmount'] ?? null,
-                                    'Active'
-                                ]
-                            );
+                            $db->execute("INSERT INTO Contract (SupplierID, ContractNumber, StartDate, EndDate, ContractAmount, StatusType) VALUES (?, ?, ?, ?, ?, ?)",
+                                [$supplierId ?: null, $po['ContractNumber'], $po['ContractStartDate'] ?? null, $po['ContractEndDate'] ?? null, $po['ContractAmount'] ?? null, 'Active']);
                             $contractId = $db->lastInsertId();
                         }
                     }
-
-                    // Logic: Insert -> Get ID -> Generate PONumber -> Update
-                    $db->execute(
-                        "INSERT INTO ProcurementOrder (UserID, SupplierID, HealthCenterID, ContractID, DocumentType, PONumber, PODate, StatusType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        [
-                            $po['UserID'], 
-                            $supplierId ?: null, 
-                            $po['HealthCenterID'] ?? null, 
-                            $contractId,
-                            $po['DocumentType'] ?? 'PO',
-                            'TEMP', 
-                            $po['PODate'], $po['StatusType']
-                        ]
-                    );
+                    $db->execute("INSERT INTO ProcurementOrder (UserID, SupplierID, HealthCenterID, ContractID, DocumentType, PONumber, PODate, StatusType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$po['UserID'], $supplierId ?: null, $po['HealthCenterID'] ?? null, $contractId, $po['DocumentType'] ?? 'PO', 'TEMP', $po['PODate'], $po['StatusType']]);
                     $newId = $db->lastInsertId();
                     $poNum = 'PO-' . date('Y') . '-' . str_pad($newId, 4, '0', STR_PAD_LEFT);
                     $db->execute("UPDATE ProcurementOrder SET PONumber = ? WHERE POID = ?", [$poNum, $newId]);
-                    
-                    $itemsKey = isset($po['ProcurementOrderItems']) ? 'ProcurementOrderItems' : 'PurchaseOrderItems';
-                    if (!empty($po[$itemsKey])) {
-                        foreach ($po[$itemsKey] as $item) {
-                            // Resolve ItemID (Handle 'I0001' string format vs INT database ID)
+                    if (!empty($po['ProcurementOrderItems'] ?? $po['PurchaseOrderItems'])) {
+                        foreach (($po['ProcurementOrderItems'] ?? $po['PurchaseOrderItems']) as $item) {
                             $resolvedItemId = $item['ItemID'];
-                            if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
-                                $resolvedItemId = (int)$matches[1];
-                            }
-                            
-                            $db->execute(
-                                "INSERT INTO ProcurementOrderItem (POID, ItemID, QuantityOrdered, UnitCost, ExpiryDate) VALUES (?, ?, ?, ?, ?)",
-                                [
-                                    $newId, 
-                                    $resolvedItemId, 
-                                    $item['QuantityOrdered'], 
-                                    $item['UnitCost'] ?? 0,
-                                    $item['ExpiryDate'] ?? null
-                                ]
-                            );
+                            if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) $resolvedItemId = (int)$matches[1];
+                            $db->execute("INSERT INTO ProcurementOrderItem (POID, ItemID, QuantityOrdered, UnitCost, ExpiryDate) VALUES (?, ?, ?, ?, ?)",
+                                [$newId, $resolvedItemId, $item['QuantityOrdered'], $item['UnitCost'] ?? 0, $item['ExpiryDate'] ?? null]);
                         }
                     }
                 }
             }
+            $db->broadcastUpdate('procurement_orders_updated');
             return true;
             
         case 'requisitions':
@@ -665,210 +573,85 @@ function save_data($file, $data) {
                     $id = $req['RequisitionID'] ?? null;
                     if ($id && is_numeric($id)) {
                         $db->execute("UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?", [$req['StatusType'], $id]);
-                        if (!empty($req['ApprovalLogs'])) {
-                            $lastLog = end($req['ApprovalLogs']);
-                            if ($lastLog && !isset($lastLog['ApprovalLogID'])) {
-                                $db->execute(
-                                    "INSERT INTO ApprovalLog (RequisitionID, UserID, Decision, DecisionDate) VALUES (?, ?, ?, ?)",
-                                    [$id, $lastLog['UserID'], $lastLog['Decision'], $lastLog['DecisionDate'] ?? date('Y-m-d H:i:s')]
-                                );
-                            }
-                        }
                     } else {
-                        // Resolve HealthCenterID
                         $hcId = $req['HealthCenterID'] ?? null;
                         if (empty($hcId) && !empty($req['HealthCenterName'])) {
-                            // Try to find existing by name
                             $existing = $db->fetchOne("SELECT HealthCenterID FROM HealthCenters WHERE Name = ?", [$req['HealthCenterName']]);
-                            if ($existing) {
-                                $hcId = $existing['HealthCenterID'];
-                            } else {
-                                // Create new
+                            if ($existing) $hcId = $existing['HealthCenterID'];
+                            else {
                                 $db->execute("INSERT INTO HealthCenters (Name, Address) VALUES (?, ?)", [$req['HealthCenterName'], $req['HealthCenterAddress'] ?? '']);
                                 $hcId = $db->lastInsertId();
                             }
                         }
-
                         $tempNum = 'TEMP-' . time() . '-' . rand(1000, 9999);
-                        $res = $db->execute(
-                            "INSERT INTO Requisition (HealthCenterID, UserID, RequisitionNumber, RequestDate, StatusType) VALUES (?, ?, ?, ?, ?)",
-                            [
-                                $hcId ?: null, $req['UserID'], $tempNum, $req['RequestDate'] ?? $req['RequestedDate'], $req['StatusType']
-                            ]
-                        );
-                        
-                        if (!$res) {
-                            throw new Exception("Initial Requisition insert failed.");
-                        }
-                        
+                        $db->execute("INSERT INTO Requisition (HealthCenterID, UserID, RequisitionNumber, RequestDate, StatusType) VALUES (?, ?, ?, ?, ?)",
+                            [$hcId ?: null, $req['UserID'], $tempNum, $req['RequestDate'] ?? $req['RequestedDate'], $req['StatusType']]);
                         $newId = $db->lastInsertId();
                         $reqNum = 'REQ-' . date('Y') . '-' . str_pad($newId, 5, '0', STR_PAD_LEFT);
-                        $res = $db->execute("UPDATE Requisition SET RequisitionNumber = ? WHERE RequisitionID = ?", [$reqNum, $newId]);
-                        
-                        if (!$res) {
-                            throw new Exception("Requisition number update failed.");
-                        }
-                        
+                        $db->execute("UPDATE Requisition SET RequisitionNumber = ? WHERE RequisitionID = ?", [$reqNum, $newId]);
                         if (!empty($req['RequisitionItems'])) {
                             foreach ($req['RequisitionItems'] as $item) {
-                                // Resolve ItemID (Handle 'I0001' string format vs INT database ID)
                                 $resolvedItemId = $item['ItemID'];
-                                if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
-                                    $resolvedItemId = (int)$matches[1];
-                                }
-                                
-                                $res = $db->execute(
-                                    "INSERT INTO RequisitionItem (RequisitionID, ItemID, QuantityRequested) VALUES (?, ?, ?)",
-                                    [$newId, $resolvedItemId, $item['QuantityRequested']]
-                                );
-                                
-                                if (!$res) {
-                                    throw new Exception("Requisition item insert failed for ItemID: $resolvedItemId");
-                                }
+                                if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) $resolvedItemId = (int)$matches[1];
+                                $db->execute("INSERT INTO RequisitionItem (RequisitionID, ItemID, QuantityRequested) VALUES (?, ?, ?)", [$newId, $resolvedItemId, $item['QuantityRequested']]);
                             }
                         }
                     }
                 }
+                $db->broadcastUpdate('requisitions_updated');
                 return true;
-            } catch (PDOException $e) {
-                return false;
-            }
-            
+            } catch (PDOException $e) { return false; }
             
         case 'issuances':
             foreach ($data as $iss) {
-                 $db->execute(
-                     "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
-                     [$iss['RequisitionID'], $iss['IssuedByUserID'] ?? $iss['UserID'], $iss['DateIssued'] ?? $iss['IssueDate'], $iss['StatusType'] ?? 'Issued']
-                 );
+                 $db->execute("INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
+                     [$iss['RequisitionID'], $iss['IssuedByUserID'] ?? $iss['UserID'], $iss['DateIssued'] ?? $iss['IssueDate'], $iss['StatusType'] ?? 'Issued']);
                  $newId = $db->lastInsertId();
-                 
                  if (!empty($iss['IssuedItems'])) {
                      foreach ($iss['IssuedItems'] as $item) {
-                         $db->execute(
-                             "INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
-                             [$newId, $item['BatchID'], $item['RequisitionItemID'] ?? null, $item['QuantityIssued']]
-                         );
+                         $db->execute("INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)", [$newId, $item['BatchID'], $item['RequisitionItemID'] ?? null, $item['QuantityIssued']]);
                      }
                  }
             }
+            $db->broadcastUpdate('issuances_updated');
             return true;
             
         case 'receivings':
             foreach ($data as $rcv) {
-                 $db->execute(
-                     "INSERT INTO Receiving (UserID, POID, ReceivedDate) VALUES (?, ?, ?)",
-                     [$rcv['UserID'], $rcv['POID'], $rcv['ReceivedDate']]
-                 );
-                  $newRcvId = $db->lastInsertId();
-                  if (!empty($rcv['ReceivedItems'])) {
-                      foreach ($rcv['ReceivedItems'] as $batch) {
-                          
-                          // Resolve ItemID (Handle 'I0001' string format vs INT database ID)
-                          $resolvedItemId = $batch['ItemID'];
-                          if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
-                              $resolvedItemId = (int)$matches[1];
-                          }
-                          // echo "DEBUG: Resolved ItemID " . $batch['ItemID'] . " -> " . $resolvedItemId . "\n";
-                          
-                          try {
-                              // Check if batch exists...
-                              $existingBatch = $db->fetchOne(
-                                  "SELECT BatchID, QuantityOnHand FROM CentralInventoryBatch 
-                                   WHERE ItemID = ? AND WarehouseID = ? AND (ExpiryDate = ? OR (ExpiryDate IS NULL AND ? IS NULL)) AND UnitCost = ?",
-                                  [
-                                      $resolvedItemId, 
-                                      $batch['WarehouseID'] ?? 1, 
-                                      $batch['ExpiryDate'] ?? null, 
-                                      $batch['ExpiryDate'] ?? null,
-                                      $batch['UnitCost'] ?? 0
-                                  ]
-                              );
-
-                              if ($existingBatch) {
-                                  // Update
-                                  $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand + ? WHERE BatchID = ?", [$batch['QuantityOnHand'], $existingBatch['BatchID']]);
-                                  $newBatchId = $existingBatch['BatchID'];
-                              } else {
-                                  // Insert
-                                  $db->execute(
-                                      "INSERT INTO CentralInventoryBatch (ItemID, WarehouseID, ExpiryDate, QuantityOnHand, QuantityReleased, UnitCost, DateReceived) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                      [
-                                          $resolvedItemId, $batch['WarehouseID'] ?? 1, $batch['ExpiryDate'] ?? null,
-                                          $batch['QuantityOnHand'], 0, $batch['UnitCost'] ?? 0, $batch['DateReceived']
-                                      ]
-                                  );
-                                  $newBatchId = $db->lastInsertId();
-                              }
-                              
-                              $db->execute(
-                                  "INSERT INTO ReceivingItem (ReceivingID, BatchID, QuantityReceived) VALUES (?, ?, ?)",
-                                  [$newRcvId, $newBatchId, $batch['QuantityOnHand']]
-                              );
-                              
-                          } catch (Exception $e) {
-                               error_log("ERROR in receivings loop: " . $e->getMessage());
-                               throw $e; // Re-throw to fail cleanly
-                          }
-                      }
-                  }
+                 $db->execute("INSERT INTO Receiving (UserID, POID, ReceivedDate) VALUES (?, ?, ?)", [$rcv['UserID'], $rcv['POID'], $rcv['ReceivedDate']]);
+                   $newRcvId = $db->lastInsertId();
+                   if (!empty($rcv['ReceivedItems'])) {
+                       foreach ($rcv['ReceivedItems'] as $batch) {
+                           $resolvedItemId = $batch['ItemID'];
+                           if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) $resolvedItemId = (int)$matches[1];
+                           try {
+                               $existingBatch = $db->fetchOne("SELECT BatchID FROM CentralInventoryBatch WHERE ItemID = ? AND WarehouseID = ? AND (ExpiryDate = ? OR (ExpiryDate IS NULL AND ? IS NULL)) AND UnitCost = ?",
+                                   [$resolvedItemId, $batch['WarehouseID'] ?? 1, $batch['ExpiryDate'] ?? null, $batch['ExpiryDate'] ?? null, $batch['UnitCost'] ?? 0]);
+                               if ($existingBatch) {
+                                   $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand + ? WHERE BatchID = ?", [$batch['QuantityOnHand'], $existingBatch['BatchID']]);
+                                   $newBatchId = $existingBatch['BatchID'];
+                               } else {
+                                   $db->execute("INSERT INTO CentralInventoryBatch (ItemID, WarehouseID, ExpiryDate, QuantityOnHand, QuantityReleased, UnitCost, DateReceived) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                       [$resolvedItemId, $batch['WarehouseID'] ?? 1, $batch['ExpiryDate'] ?? null, $batch['QuantityOnHand'], 0, $batch['UnitCost'] ?? 0, $batch['DateReceived']]);
+                                   $newBatchId = $db->lastInsertId();
+                               }
+                               $db->execute("INSERT INTO ReceivingItem (ReceivingID, BatchID, QuantityReceived) VALUES (?, ?, ?)", [$newRcvId, $newBatchId, $batch['QuantityOnHand']]);
+                           } catch (Exception $e) { throw $e; }
+                       }
+                   }
             }
+            $db->broadcastUpdate('receivings_updated');
+            $db->broadcastUpdate('inventory_updated');
             return true;
             
         case 'reports':
             foreach($data as $rpt) {
-                // If it's a new report (no ID or string ID from legacy), insert it
                 if (!isset($rpt['ReportID']) || !is_numeric($rpt['ReportID'])) {
-                    $db->execute(
-                        "INSERT INTO Report (UserID, ReportType, GeneratedDate, GeneratedForOffice) VALUES (?, ?, ?, ?)",
-                        [$rpt['UserID'], $rpt['ReportType'], $rpt['GeneratedDate'], $rpt['GeneratedForOffice']]
-                    );
+                    $db->execute("INSERT INTO Report (UserID, ReportType, GeneratedDate, GeneratedForOffice) VALUES (?, ?, ?, ?)",
+                        [$rpt['UserID'], $rpt['ReportType'], $rpt['GeneratedDate'], $rpt['GeneratedForOffice']]);
                 }
             }
-            return true;
-
-        case 'approval_logs':
-            foreach($data as $log) {
-                if (!isset($log['ApprovalLogID'])) {
-                    $db->execute(
-                        "INSERT INTO ApprovalLog (RequisitionID, UserID, Decision, DecisionDate) VALUES (?, ?, ?, ?)",
-                        [$log['RequisitionID'], $log['UserID'], $log['Decision'], $log['DecisionDate'] ?? date('Y-m-d H:i:s')]
-                    );
-                }
-            }
-            return true;
-
-        case 'issuance_items':
-            foreach($data as $item) {
-                if (!isset($item['IssuanceItemID'])) {
-                    $db->execute(
-                        "INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
-                        [$item['IssuanceID'], $item['BatchID'], $item['RequisitionItemID'] ?? null, $item['QuantityIssued']]
-                    );
-                }
-            }
-            return true;
-
-        case 'requisition_adjustments':
-            foreach($data as $adj) {
-                if (!isset($adj['RequisitionAdjustmentID']) || !is_numeric($adj['RequisitionAdjustmentID'])) {
-                    $db->execute(
-                        "INSERT INTO RequisitionAdjustment (IssuanceID, UserID, AdjustmentType, AdjustmentDate, Reason) VALUES (?, ?, ?, ?, ?)",
-                        [$adj['IssuanceID'] ?? null, $adj['UserID'], $adj['AdjustmentType'], $adj['AdjustmentDate'], $adj['Reason']]
-                    );
-                }
-            }
-            return true;
-
-        case 'requisition_adjustment_details':
-            foreach($data as $det) {
-                if (!isset($det['RAD'])) {
-                    $db->execute(
-                        "INSERT INTO RequisitionAdjustmentDetail (RequisitionAdjustmentID, BatchID, QuantityAdjusted) VALUES (?, ?, ?)",
-                        [$det['RequisitionAdjustmentID'], $det['BatchID'], $det['QuantityAdjusted']]
-                    );
-                }
-            }
+            $db->broadcastUpdate('reports_updated');
             return true;
 
         case 'security_logs':
@@ -884,8 +667,9 @@ function save_data($file, $data) {
                 [$d['UserID'], $d['ReferenceType'], isset($d['ReferenceID']) && is_numeric($d['ReferenceID']) ? $d['ReferenceID'] : 0, $d['ActionType'], $d['ActionDate']]);
              }
              return true;
-             
+
         default:
+            $db->broadcastUpdate($file . '_updated');
             return true;
     }
 }

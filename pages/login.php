@@ -1,6 +1,7 @@
 <?php
 // pages/login.php
-// No preload needed for real authentication flow
+require_once 'includes/db.php';
+$healthCenters = get_data('health_centers');
 ?>
 <div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="loginFlow()">
     <div class="auth-card animate-premium-in">
@@ -57,6 +58,7 @@
 
                 <div x-show="message" x-transition class="p-2 text-xs text-center border font-semibold rounded-lg" :class="messageType === 'error' ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-600 bg-green-50 border-green-200'" x-text="message"></div>
 
+
                 <div class="pt-1.5">
                     <button type="submit" :disabled="loading" class="btn btn-primary w-full py-2.5 shadow-sm active:scale-[0.98] text-sm font-semibold flex justify-center items-center gap-2">
                         <span x-show="loading" class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -80,6 +82,8 @@ function loginFlow() {
     return {
         username: '',
         password: '',
+        healthCenterId: '',
+        hasAssignedHC: false,
         passwordVisible: false,
         loading: false,
         message: '',

@@ -2,14 +2,18 @@
 $procurementOrders = get_data('procurement_orders');
 ?>
 
-<div class="space-y-6">
+<div class="space-y-6" 
+    x-data="{ 
+        showAddPOModal: false 
+    }" 
+    @close-add-po-modal.window="showAddPOModal = false">
     <!-- Consolidated Header: Title & Action -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div class="space-y-1">
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Procurement Orders</h2>
             <p class="text-slate-500 font-medium text-sm">Manage procurement and track orders from medical suppliers.</p>
         </div>
-        <button onclick="document.getElementById('addPOModal').classList.remove('hidden')" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
+        <button @click="showAddPOModal = true" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
             + New Procurement Order
         </button>
     </div>
@@ -101,7 +105,7 @@ $procurementOrders = get_data('procurement_orders');
             </table>
         </div>
     </div>
+    
+    <?php include 'components/add_procurement_order_modal.php'; ?>
 </div>
-
-<?php include 'components/add_procurement_order_modal.php'; ?>
 <?php include 'components/procurement_order_details_modal.php'; ?>
