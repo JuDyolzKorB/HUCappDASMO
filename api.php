@@ -1305,6 +1305,26 @@ try {
             }
 
             $mainDb = DB_NAME;
+            
+            // Fetch Requisition Details
+            $stmt = $hcConn->prepare("
+                SELECT pr.*, 
+                       CONCAT(s.FirstName, ' ', s.LastName) as StaffName,
+                       CONCAT(u.FName, ' ', u.LName) as ApproverName
+                FROM PatientRequisition pr
+                LEFT JOIN HC_Staff s ON pr.StaffID = s.StaffID
+                LEFT JOIN $mainDb.Users u ON pr.ApprovedBy = u.UserID
+                WHERE pr.PatientRequisitionID = ?
+            ");
+            $stmt->execute([$reqId]);
+            $details = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$details) {
+                echo json_encode(['success' => false, 'message' => 'Requisition not found']);
+                exit;
+            }
+
+            // Fetch Items
             $stmt = $hcConn->prepare("
                 SELECT pri.*, i.ItemName, i.UnitOfMeasure as Unit 
                 FROM PatientRequisitionItem pri
@@ -1314,7 +1334,7 @@ try {
             $stmt->execute([$reqId]);
             $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            echo json_encode(['success' => true, 'items' => $items]);
+            echo json_encode(['success' => true, 'details' => $details, 'items' => $items]);
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
         }

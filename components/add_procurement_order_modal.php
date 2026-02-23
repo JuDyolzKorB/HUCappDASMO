@@ -5,9 +5,10 @@ $items = get_data('items');
 $contracts = get_data('contracts');
 ?>
 
-<div id="addPOModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4" onclick="if(event.target === this) closeAddPOModal()">
+<template x-teleport="body">
+<div id="addPOModal" class="fixed inset-0 z-[100] flex justify-center items-center p-4 hidden" :class="{ 'hidden': !showAddPOModal, 'flex': showAddPOModal }" x-show="showAddPOModal" x-cloak>
     <!-- Backdrop with blur -->
-    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeAddPOModal()"></div>
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="closeAddPOModal()" x-show="showAddPOModal" x-transition.opacity></div>
     
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
         <!-- Modal Header -->
@@ -269,6 +270,7 @@ $contracts = get_data('contracts');
         </form>
     </div>
 </div>
+</template>
 
 <script>
 function toggleSupplierInput(checkbox) {
@@ -298,8 +300,11 @@ document.getElementById('poSupplier').addEventListener('change', function() {
 });
 
 // Initial item row
+// Initial item row
 function closeAddPOModal() {
-    document.getElementById('addPOModal').classList.add('hidden');
+    // Dispatch event for Alpine to catch
+    window.dispatchEvent(new CustomEvent('close-add-po-modal'));
+    
     document.getElementById('addPOForm').reset();
     
     // Reset manual toggle

@@ -80,12 +80,14 @@ if ($hcConn) {
     },
     showDetailsModal: false,
     activeReqItems: [],
+    activeReqDetails: null, // New state for details
     isLoadingDetails: false,
     async viewDetails(reqId) {
         this.activeReqId = reqId;
         this.showDetailsModal = true;
         this.isLoadingDetails = true;
         this.activeReqItems = [];
+        this.activeReqDetails = null; // Reset
         
         try {
             const formData = new FormData();
@@ -97,6 +99,7 @@ if ($hcConn) {
             
             if (data.success) {
                 this.activeReqItems = data.items;
+                this.activeReqDetails = data.details; // Set details
             } else {
                 alert(data.message);
                 this.showDetailsModal = false;
@@ -355,38 +358,123 @@ if ($hcConn) {
             
             <div x-show="showDetailsModal"
                  x-transition.scale.duration.300ms
-                 class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden relative z-10">
+                 class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative z-10 flex flex-col max-h-[90vh]">
                 
-                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">Requisition Details</h3>
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 flex-shrink-0">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Requisition Details</h3>
+                        <p class="text-xs text-slate-500" x-text="'ID: #' + activeReqId"></p>
+                    </div>
                     <button @click="showDetailsModal = false" class="text-slate-400 hover:text-slate-600">&times;</button>
                 </div>
 
-                <div class="p-6">
+                <div class="p-6 overflow-y-auto flex-1">
                     <div x-show="isLoadingDetails" class="text-center py-8 text-slate-500">
                         <svg class="animate-spin h-8 w-8 mx-auto text-primary mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Loading items...
+                        Loading details...
                     </div>
 
-                    <div x-show="!isLoadingDetails">
-                        <template x-if="activeReqItems.length === 0">
-                            <p class="text-center text-slate-500 italic py-4">No items found for this requisition.</p>
-                        </template>
-                        
-                        <div x-show="activeReqItems.length > 0" class="space-y-3">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Requested Items</h4>
-                            <div class="border rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
-                                <template x-for="item in activeReqItems" :key="item.ItemID">
-                                    <div class="flex justify-between items-center p-3 bg-slate-50/50 dark:bg-slate-700/20">
+                    <div x-show="!isLoadingDetails && activeReqDetails">
+                        <!-- Header Status Section -->
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                            <div>
+                                <div class="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Status</div>
+                                <span class="px-3 py-1 text-sm font-bold rounded-full inline-block"
+                                      :class="{
+                                          'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400': activeReqDetails?.StatusType === 'Pending',
+                                          'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400': activeReqDetails?.StatusType === 'Approved',
+                                          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': activeReqDetails?.StatusType === 'Denied'
+                                      }"
+                                      x-text="activeReqDetails?.StatusType">
+                                </span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Request Date</div>
+                                <div class="text-sm font-medium text-slate-700 dark:text-slate-300" x-text="new Date(activeReqDetails?.RequestDate).toLocaleString()"></div>
+                            </div>
+                        </div>
+
+                        <!-- Patient Info Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 dark:border-slate-700 pb-1">Patient Information</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-xs text-slate-500">Full Name</div>
+                                        <div class="font-bold text-slate-900 dark:text-white text-lg" x-text="activeReqDetails?.PatientName"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-500">Contact Number</div>
+                                        <div class="font-medium text-slate-700 dark:text-slate-300" x-text="activeReqDetails?.ContactNumber || 'N/A'"></div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-500">Address</div>
+                                        <div class="font-medium text-slate-700 dark:text-slate-300" x-text="activeReqDetails?.PatientAddress || 'N/A'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 dark:border-slate-700 pb-1">Request Information</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-xs text-slate-500">Requested By (Staff)</div>
+                                        <div class="font-medium text-slate-700 dark:text-slate-300" x-text="activeReqDetails?.StaffName || 'Unknown'"></div>
+                                    </div>
+                                    <template x-if="activeReqDetails?.StatusType !== 'Pending'">
                                         <div>
-                                            <div class="font-medium text-slate-900 dark:text-white" x-text="item.ItemName"></div>
-                                            <div class="text-xs text-slate-500" x-text="'Unit: ' + item.Unit"></div>
+                                            <div class="text-xs text-slate-500" x-text="activeReqDetails?.StatusType + ' By'"></div>
+                                            <div class="font-medium text-slate-700 dark:text-slate-300" x-text="activeReqDetails?.ApproverName || 'Unknown'"></div>
+                                            <div class="text-xs text-slate-400 mt-0.5" x-text="activeReqDetails?.ApprovedAt"></div>
                                         </div>
-                                        <div class="text-sm font-bold bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                                            <span x-text="item.QuantityRequested"></span>
+                                    </template>
+                                    <template x-if="activeReqDetails?.IDProofPath">
+                                        <div>
+                                            <div class="text-xs text-slate-500 mb-1">ID Proof</div>
+                                            <a :href="activeReqDetails?.IDProofPath" target="_blank" class="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                                View Document
+                                            </a>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Remarks if Denied/Approved with remarks -->
+                        <template x-if="activeReqDetails?.Remarks">
+                            <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl">
+                                <div class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Remarks</div>
+                                <div class="text-sm text-red-700 dark:text-red-300 italic" x-text="'&ldquo;' + activeReqDetails?.Remarks + '&rdquo;'"></div>
+                            </div>
+                        </template>
+
+                        <!-- Items List -->
+                        <div>
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 border-b border-slate-100 dark:border-slate-700 pb-1">Requested Items</h4>
+                            
+                            <template x-if="activeReqItems.length === 0">
+                                <p class="text-center text-slate-500 italic py-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">No items found for this requisition.</p>
+                            </template>
+                            
+                            <div x-show="activeReqItems.length > 0" class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/50">
+                                <template x-for="item in activeReqItems" :key="item.ItemID">
+                                    <div class="flex justify-between items-center p-3 bg-slate-50/30 dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                                            </div>
+                                            <div>
+                                                <div class="font-medium text-slate-900 dark:text-white" x-text="item.ItemName"></div>
+                                                <div class="text-xs text-slate-500" x-text="item.Unit"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-xs text-slate-400 block mb-0.5">Qty</span>
+                                            <span class="text-sm font-bold bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm" x-text="item.QuantityRequested"></span>
                                         </div>
                                     </div>
                                 </template>
@@ -395,8 +483,8 @@ if ($hcConn) {
                     </div>
                 </div>
                 
-                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-                    <button @click="showDetailsModal = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 transition-colors">Close</button>
+                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-end flex-shrink-0">
+                    <button @click="showDetailsModal = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:text-slate-800 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-sm hover:shadow transition-all">Close</button>
                 </div>
             </div>
         </div>
