@@ -90,7 +90,11 @@ class Database {
             'transaction_logs' => 'TransactionAuditLog',
             'security_logs' => 'SecurityLog',
             'reports' => 'Report',
-            'notifications' => 'Notifications'
+            'notifications' => 'Notifications',
+            'hc_inventory_batches' => 'HCInventoryBatch',
+            'patients' => 'HCPatient',
+            'patient_requisitions' => 'HCPatientRequisition',
+            'patient_requisition_items' => 'HCPatientRequisitionItem'
         ];
         
         return $mapping[$filename] ?? $filename;
@@ -405,6 +409,25 @@ function get_data($file) {
         case 'inventory_adjustments':
             return $db->fetchAll("SELECT * FROM InventoryAdjustment ORDER BY AdjustmentDate DESC");
             
+        case 'hc_inventory':
+            $user = $_SESSION['user'] ?? null;
+            $hcId = $_GET['hc_id'] ?? $user['HealthCenterID'] ?? null;
+            
+            if ($hcId) {
+                return $db->fetchAll("
+                    SELECT hci.*, i.ItemName, i.ItemType, i.UnitOfMeasure 
+                    FROM HCInventoryBatch hci
+                    JOIN Item i ON hci.ItemID = i.ItemID
+                    WHERE hci.HealthCenterID = ?
+                ", [$hcId]);
+            }
+            return $db->fetchAll("
+                SELECT hci.*, i.ItemName, i.ItemType, i.UnitOfMeasure, hc.Name as HealthCenterName
+                FROM HCInventoryBatch hci
+                JOIN Item i ON hci.ItemID = i.ItemID
+                JOIN HealthCenters hc ON hci.HealthCenterID = hc.HealthCenterID
+            ");
+
         case 'reports':
             return $db->fetchAll("
                 SELECT r.*, CONCAT(u.FName, ' ', u.LName) as GeneratedByFullName 
@@ -412,6 +435,36 @@ function get_data($file) {
                 LEFT JOIN Users u ON r.UserID = u.UserID
                 ORDER BY r.GeneratedDate DESC
             ");
+
+        case 'patients':
+            $hcId = $_GET['hc_id'] ?? $_SESSION['user']['HealthCenterID'] ?? null;
+            if ($hcId) {
+                return $db->fetchAll("SELECT * FROM HCPatient WHERE HealthCenterID = ?", [$hcId]);
+            }
+            return $db->fetchAll("SELECT * FROM HCPatient");
+
+        case 'patient_requisitions':
+            $hcId = $_GET['hc_id'] ?? $_SESSION['user']['HealthCenterID'] ?? null;
+            $sql = "SELECT pr.*, p.FName, p.LName, p.Age, p.Gender 
+                    FROM HCPatientRequisition pr
+                    JOIN HCPatient p ON pr.PatientID = p.PatientID";
+            $params = [];
+            if ($hcId) {
+                $sql .= " WHERE pr.HealthCenterID = ?";
+                $params[] = $hcId;
+            }
+            $sql .= " ORDER BY pr.RequestDate DESC";
+            $reqs = $db->fetchAll($sql, $params);
+            foreach ($reqs as &$req) {
+                $req['PatientFullName'] = $req['FName'] . ' ' . $req['LName'];
+                $req['Items'] = $db->fetchAll(
+                    "SELECT pri.*, i.ItemName FROM HCPatientRequisitionItem pri
+                     JOIN Item i ON pri.ItemID = i.ItemID
+                     WHERE pri.PatientReqID = ?",
+                    [$req['PatientReqID']]
+                );
+            }
+            return $reqs;
             
         default:
             return $db->read($file);
@@ -884,6 +937,51 @@ function save_data($file, $data) {
                 [$d['UserID'], $d['ReferenceType'], isset($d['ReferenceID']) && is_numeric($d['ReferenceID']) ? $d['ReferenceID'] : 0, $d['ActionType'], $d['ActionDate']]);
              }
              return true;
+
+        case 'patients':
+            foreach ($data as $p) {
+                $id = $p['PatientID'] ?? null;
+                if ($id && is_numeric($id)) {
+                    $db->execute(
+                        "UPDATE HCPatient SET HealthCenterID = ?, FName = ?, MName = ?, LName = ?, Age = ?, Gender = ?, Address = ?, ContactNumber = ? WHERE PatientID = ?",
+                        [$p['HealthCenterID'], $p['FName'], $p['MName'], $p['LName'], $p['Age'], $p['Gender'], $p['Address'], $p['ContactNumber'], $id]
+                    );
+                } else {
+                    $db->execute(
+                        "INSERT INTO HCPatient (HealthCenterID, FName, MName, LName, Age, Gender, Address, ContactNumber) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$p['HealthCenterID'], $p['FName'], $p['MName'], $p['LName'], $p['Age'], $p['Gender'], $p['Address'], $p['ContactNumber']]
+                    );
+                }
+            }
+            return true;
+
+        case 'patient_requisitions':
+            foreach ($data as $pr) {
+                $id = $pr['PatientReqID'] ?? null;
+                if ($id && is_numeric($id)) {
+                    $db->execute("UPDATE HCPatientRequisition SET StatusType = ?, Diagnosis = ?, Notes = ? WHERE PatientReqID = ?",
+                        [$pr['StatusType'], $pr['Diagnosis'], $pr['Notes'], $id]);
+                } else {
+                    $tempNum = 'PR-' . time() . '-' . rand(1000, 9999);
+                    $db->execute(
+                        "INSERT INTO HCPatientRequisition (PatientID, UserID, HealthCenterID, RequisitionNumber, RequestDate, StatusType, Diagnosis, Notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$pr['PatientID'], $pr['UserID'], $pr['HealthCenterID'], $tempNum, $pr['RequestDate'], $pr['StatusType'], $pr['Diagnosis'], $pr['Notes']]
+                    );
+                    $newId = $db->lastInsertId();
+                    $reqNum = 'PR-' . date('Y') . '-' . str_pad($newId, 5, '0', STR_PAD_LEFT);
+                    $db->execute("UPDATE HCPatientRequisition SET RequisitionNumber = ? WHERE PatientReqID = ?", [$reqNum, $newId]);
+
+                    if (!empty($pr['Items'])) {
+                        foreach ($pr['Items'] as $item) {
+                            $db->execute(
+                                "INSERT INTO HCPatientRequisitionItem (PatientReqID, ItemID, QuantityRequested) VALUES (?, ?, ?)",
+                                [$newId, $item['ItemID'], $item['QuantityRequested']]
+                            );
+                        }
+                    }
+                }
+            }
+            return true;
              
         default:
             return true;

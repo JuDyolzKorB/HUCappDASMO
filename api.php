@@ -120,9 +120,19 @@ try {
             exit;
         }
         
+        global $db;
         $inventory = get_data('inventory');
         $issuances = []; // To be saved
         
+        // Fetch requisition to get HealthCenterID
+        $req = $db->fetchOne("SELECT HealthCenterID FROM Requisition WHERE RequisitionID = ?", [$reqId]);
+        $healthCenterId = $req['HealthCenterID'] ?? null;
+
+        if (!$healthCenterId) {
+            echo json_encode(['success' => false, 'message' => 'Health center not found for this requisition']);
+            exit;
+        }
+
         $newIssuance = [
             'RequisitionID' => $reqId,
             'DateIssued' => date('Y-m-d H:i:s'),
@@ -139,9 +149,9 @@ try {
 
                  if (!$batchId || $qtyToIssue <= 0) continue;
 
-                 // Deduct from inventory (in memory, then saved)
+                 // Deduct from central inventory
                  foreach ($inventory as &$batch) {
-                     if ($batch['BatchID'] == $batchId) { // Loose comparison as ID might be int or string from JSON
+                     if ($batch['BatchID'] == $batchId) {
                          $batch['QuantityOnHand'] -= $qtyToIssue;
                          $batch['QuantityReleased'] = ($batch['QuantityReleased'] ?? 0) + $qtyToIssue;
                          
@@ -150,6 +160,26 @@ try {
                              'RequisitionItemID' => $planItem['reqItemId'] ?? null,
                              'QuantityIssued' => $qtyToIssue
                          ];
+
+                         // Transfer to HC Inventory
+                         // Check if this batch already exists in HC inventory
+                         $existingHCBatch = $db->fetchOne(
+                            "SELECT HCBatchID FROM HCInventoryBatch WHERE HealthCenterID = ? AND ItemID = ? AND BatchID = ?",
+                            [$healthCenterId, $batch['ItemID'], $batchId]
+                         );
+
+                         if ($existingHCBatch) {
+                             $db->execute(
+                                "UPDATE HCInventoryBatch SET QuantityOnHand = QuantityOnHand + ? WHERE HCBatchID = ?",
+                                [$qtyToIssue, $existingHCBatch['HCBatchID']]
+                             );
+                         } else {
+                             $db->execute(
+                                "INSERT INTO HCInventoryBatch (HealthCenterID, ItemID, BatchID, ExpiryDate, QuantityOnHand, UnitCost) 
+                                 VALUES (?, ?, ?, ?, ?, ?)",
+                                [$healthCenterId, $batch['ItemID'], $batchId, $batch['ExpiryDate'], $qtyToIssue, $batch['UnitCost']]
+                             );
+                         }
                          break;
                      }
                  }
@@ -401,70 +431,6 @@ try {
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);
-        }
-
-    } elseif ($action === 'process_issuance') {
-        try {
-            $requisitionId = $_POST['requisitionId'] ?? '';
-            $allocationPlanJson = $_POST['allocationPlan'] ?? '';
-            
-            if (!$requisitionId || !$allocationPlanJson) {
-                echo json_encode(['success' => false, 'message' => 'Missing required parameters']);
-                exit;
-            }
-            
-            $allocationPlan = json_decode($allocationPlanJson, true);
-            if (!$allocationPlan) {
-                echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
-                exit;
-            }
-            
-            global $db;
-            
-            // 1. Create Issuance record
-            $db->execute(
-                "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
-                [$requisitionId, $_SESSION['user']['UserID'], date('Y-m-d H:i:s'), 'Issued']
-            );
-            $issuanceId = $db->lastInsertId();
-            
-            // 2. Process each item allocation
-            foreach ($allocationPlan as $itemPlan) {
-                $reqItemId = $itemPlan['reqItemId'];
-                
-                foreach ($itemPlan['allocated'] as $allocation) {
-                    $batchId = $allocation['BatchID'];
-                    $quantity = $allocation['Quantity'];
-                    
-                    // 2a. Create IssuanceItem record
-                    $db->execute(
-                        "INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
-                        [$issuanceId, $batchId, $reqItemId, $quantity]
-                    );
-                    
-                    // 2b. Update inventory batch (decrease QuantityOnHand, increase QuantityReleased)
-                    $db->execute(
-                        "UPDATE CentralInventoryBatch 
-                         SET QuantityOnHand = QuantityOnHand - ?, 
-                             QuantityReleased = QuantityReleased + ? 
-                         WHERE BatchID = ?",
-                        [$quantity, $quantity, $batchId]
-                    );
-                }
-            }
-            
-            // 3. Update requisition status to Completed
-            $db->execute(
-                "UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?",
-                ['Completed', $requisitionId]
-            );
-            
-            log_security_event($_SESSION['user']['UserID'], 'Issuance', 'Success', "Processed issuance for requisition $requisitionId");
-            echo json_encode(['success' => true, 'message' => 'Issuance processed successfully']);
-            
-        } catch (Exception $e) {
-            error_log("Process issuance error: " . $e->getMessage());
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         }
 
     } elseif ($action === 'mark_notifications_read') {
@@ -1059,6 +1025,69 @@ try {
             }
         } else {
              echo json_encode(['success' => false, 'message' => 'Item not found']);
+        }
+
+    } elseif ($action === 'add_patient') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $newPatient = [
+            'HealthCenterID' => $_POST['healthCenterId'] ?? $_SESSION['user']['HealthCenterID'] ?? null,
+            'FName' => $_POST['firstName'] ?? '',
+            'MName' => $_POST['middleName'] ?? '',
+            'LName' => $_POST['lastName'] ?? '',
+            'Age' => $_POST['age'] ?? null,
+            'Gender' => $_POST['gender'] ?? 'Other',
+            'Address' => $_POST['address'] ?? '',
+            'ContactNumber' => $_POST['contactNumber'] ?? ''
+        ];
+
+        if (empty($newPatient['FName']) || empty($newPatient['LName'])) {
+            echo json_encode(['success' => false, 'message' => 'Patient name is required']);
+            exit;
+        }
+
+        if (save_data('patients', [$newPatient])) {
+            log_security_event($_SESSION['user']['UserID'], 'Patient', 'Success', "Added patient {$newPatient['FName']} {$newPatient['LName']}");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save patient']);
+        }
+
+    } elseif ($action === 'create_patient_requisition') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $patientId = $_POST['patientId'] ?? '';
+        $items = json_decode($_POST['items'] ?? '[]', true);
+        $diagnosis = $_POST['diagnosis'] ?? '';
+        $notes = $_POST['notes'] ?? '';
+
+        if (!$patientId || empty($items)) {
+            echo json_encode(['success' => false, 'message' => 'Patient and items are required']);
+            exit;
+        }
+
+        $newPR = [
+            'PatientID' => $patientId,
+            'UserID' => $_SESSION['user']['UserID'],
+            'HealthCenterID' => $_SESSION['user']['HealthCenterID'] ?? null,
+            'RequestDate' => date('Y-m-d H:i:s'),
+            'StatusType' => 'Pending',
+            'Diagnosis' => $diagnosis,
+            'Notes' => $notes,
+            'Items' => $items
+        ];
+
+        if (save_data('patient_requisitions', [$newPR])) {
+            logTransaction('Created Patient Requisition', 'HCPatientRequisition', $patientId);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save patient requisition']);
         }
 
     } else {

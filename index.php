@@ -24,7 +24,7 @@ if ($page === 'logout') {
 }
 
 // Allowed pages list
-$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers'];
+$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'patient_requisitions'];
 
 // Page Title Handling
 $pageTitles = [
@@ -32,7 +32,8 @@ $pageTitles = [
     'requisitions' => 'Requisitions',
     'procurement-orders' => 'Procurement Orders',
     'receiving' => 'Receiving',
-    'inventory' => 'Inventory',
+    'inventory' => 'Main Inventory',
+    'hc_inventory' => 'Health Center Inventory',
     'warehouse' => 'Warehouse Management',
     'issuance' => 'Issuance',
     'adjustments' => 'Adjustments',
@@ -41,7 +42,8 @@ $pageTitles = [
     'profile' => 'Profile',
     'login' => 'Sign In',
     'signup' => 'Sign Up',
-    'suppliers' => 'Supplier Management'
+    'suppliers' => 'Supplier Management',
+    'patient_requisitions' => 'Patient Requisitions'
 ];
 
 $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';

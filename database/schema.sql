@@ -295,7 +295,52 @@ CREATE TABLE Notifications (
     targetRoles TEXT -- Comma separated roles or null for all
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 23. Patient Table
+CREATE TABLE HCPatient (
+    PatientID INT AUTO_INCREMENT PRIMARY KEY,
+    HealthCenterID INT NOT NULL,
+    FName VARCHAR(100) NOT NULL,
+    MName VARCHAR(100),
+    LName VARCHAR(100) NOT NULL,
+    Age INT,
+    Gender ENUM('Male', 'Female', 'Other'),
+    Address TEXT,
+    ContactNumber VARCHAR(20),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (HealthCenterID) REFERENCES HealthCenters(HealthCenterID) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 24. Patient Requisition Table
+CREATE TABLE HCPatientRequisition (
+    PatientReqID INT AUTO_INCREMENT PRIMARY KEY,
+    PatientID INT NOT NULL,
+    UserID INT NOT NULL, -- The HC Staff who created it
+    HealthCenterID INT NOT NULL,
+    RequisitionNumber VARCHAR(100) UNIQUE,
+    RequestDate DATETIME NOT NULL,
+    StatusType VARCHAR(50) DEFAULT 'Pending',
+    Diagnosis TEXT,
+    Notes TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (PatientID) REFERENCES HCPatient(PatientID) ON DELETE CASCADE,
+    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (HealthCenterID) REFERENCES HealthCenters(HealthCenterID) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 25. Patient Requisition Item Table
+CREATE TABLE HCPatientRequisitionItem (
+    PRItemID INT AUTO_INCREMENT PRIMARY KEY,
+    PatientReqID INT NOT NULL,
+    ItemID INT NOT NULL,
+    QuantityQuantityrequested INT NOT NULL,
+    FOREIGN KEY (PatientReqID) REFERENCES HCPatientRequisition(PatientReqID) ON DELETE CASCADE,
+    FOREIGN KEY (ItemID) REFERENCES Item(ItemID) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Indexes
 CREATE INDEX idx_po_status ON ProcurementOrder(StatusType);
 CREATE INDEX idx_req_status ON Requisition(StatusType);
 CREATE INDEX idx_inv_item ON CentralInventoryBatch(ItemID);
+CREATE INDEX idx_patient_name ON HCPatient(LName, FName);
+CREATE INDEX idx_patient_req_status ON HCPatientRequisition(StatusType);
+
