@@ -30,6 +30,7 @@ switch ($userRole) {
 $requisitions = get_data('requisitions');
 $procurementOrders = get_data('procurement_orders');
 $inventory = get_data('inventory');
+$patientRequisitions = get_data('patient_requisitions');
 
 if ($userRole !== 'Administrator' && $dashboardFile) {
     include $dashboardFile;
@@ -38,7 +39,8 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
     $stats = [
         'pending_reqs' => 0,
         'low_stock' => 0,
-        'pending_pos' => 0
+        'pending_pos' => 0,
+        'pending_patient_reqs' => 0
     ];
 
     foreach ($requisitions as $r) {
@@ -51,6 +53,10 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
 
     foreach ($inventory as $batch) {
         if ($batch['QuantityOnHand'] < 500) $stats['low_stock']++;
+    }
+
+    foreach ($patientRequisitions as $pr) {
+        if ($pr['StatusType'] === 'Pending') $stats['pending_patient_reqs']++;
     }
     ?>
     
@@ -72,7 +78,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
             </div>
         
             <!-- KPI Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                  <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=requisitions'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl">
@@ -80,10 +86,22 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                         </div>
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-lg">Real-time</span>
                     </div>
-                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending Requisitions</p>
+                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Inventory Requisitions</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_reqs']; ?></h3>
-                        <span class="text-xs font-bold text-emerald-500">+2 from yesterday</span>
+                    </div>
+                </div>
+
+                <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow bg-teal-50/30 dark:bg-teal-900/10 border-teal-100 dark:border-teal-900/30" onclick="window.location.href='index.php?page=patient_requisitions'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-2xl">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        </div>
+                        <span class="text-[10px] font-bold text-teal-500 uppercase tracking-widest bg-teal-50 dark:bg-teal-900/10 px-2 py-1 rounded-lg">Action</span>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Patient Requisitions</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_patient_reqs']; ?></h3>
                     </div>
                 </div>
 
@@ -94,10 +112,9 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                         </div>
                         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-lg">Waitlist</span>
                     </div>
-                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Pending Procurement Orders</p>
+                    <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Procurement Orders</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_pos']; ?></h3>
-                        <span class="text-xs font-bold text-slate-400">Stable</span>
                     </div>
                 </div>
 
@@ -111,7 +128,6 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Low Stock Batches</p>
                     <div class="flex items-baseline gap-2 mt-1">
                         <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['low_stock']; ?></h3>
-                        <span class="text-xs font-bold text-red-500">Requires attention</span>
                     </div>
                 </div>
             </div>

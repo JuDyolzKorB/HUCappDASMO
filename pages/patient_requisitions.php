@@ -10,8 +10,27 @@ $tab = $_GET['tab'] ?? 'requisitions';
 
 <div class="space-y-6" x-data="{ 
     tab: '<?php echo $tab; ?>',
+    userRole: '<?php echo $userRole; ?>',
     openPatientModal() { $dispatch('open-patient-modal') },
-    openRequestModal() { $dispatch('open-patient-requisition-modal') }
+    openRequestModal() { $dispatch('open-patient-requisition-modal') },
+    viewRequisition(req) { $dispatch('open-patient-requisition-view-modal', { requisition: req }) },
+    updateStatus(reqId, status) {
+        if (!confirm('Are you sure you want to change status to ' + status + '?')) return;
+        const formData = new FormData();
+        formData.append('action', 'update_patient_requisition_status');
+        formData.append('requisitionId', reqId);
+        formData.append('status', status);
+
+        fetch('api.php', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
 }">
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -67,12 +86,24 @@ $tab = $_GET['tab'] ?? 'requisitions';
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300"><?php echo $pr['PatientFullName']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"><?php echo date('M d, Y', strtotime($pr['RequestDate'])); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800">
+                                <span class="px-2 py-1 text-xs font-bold rounded-full 
+                                    <?php 
+                                    switch($pr['StatusType']) {
+                                        case 'Approved': echo 'bg-green-100 text-green-800'; break;
+                                        case 'Rejected': echo 'bg-red-100 text-red-800'; break;
+                                        case 'Completed': echo 'bg-blue-100 text-blue-800'; break;
+                                        default: echo 'bg-yellow-100 text-yellow-800'; break;
+                                    }
+                                    ?>">
                                     <?php echo $pr['StatusType']; ?>
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                <button class="text-primary hover:underline font-bold">View</button>
+                                <button @click="viewRequisition(<?php echo htmlspecialchars(json_encode($pr)); ?>)" class="text-primary hover:underline font-bold mr-3">View</button>
+                                <?php if (($userRole === 'Administrator' || $userRole === 'Head Pharmacist') && $pr['StatusType'] === 'Pending'): ?>
+                                    <button @click="updateStatus('<?php echo $pr['PatientReqID']; ?>', 'Approved')" class="text-green-600 hover:text-green-700 font-bold mr-3">Approve</button>
+                                    <button @click="updateStatus('<?php echo $pr['PatientReqID']; ?>', 'Rejected')" class="text-red-600 hover:text-red-700 font-bold">Reject</button>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -119,3 +150,4 @@ $tab = $_GET['tab'] ?? 'requisitions';
 
 <?php include 'components/patient_modal.php'; ?>
 <?php include 'components/patient_requisition_modal.php'; ?>
+<?php include 'components/patient_requisition_view_modal.php'; ?>

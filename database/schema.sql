@@ -321,6 +321,8 @@ CREATE TABLE HCPatientRequisition (
     StatusType VARCHAR(50) DEFAULT 'Pending',
     Diagnosis TEXT,
     Notes TEXT,
+    ContactInfo VARCHAR(255),
+    IDProof VARCHAR(255),
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (PatientID) REFERENCES HCPatient(PatientID) ON DELETE CASCADE,
     FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE,
@@ -332,7 +334,7 @@ CREATE TABLE HCPatientRequisitionItem (
     PRItemID INT AUTO_INCREMENT PRIMARY KEY,
     PatientReqID INT NOT NULL,
     ItemID INT NOT NULL,
-    QuantityQuantityrequested INT NOT NULL,
+    QuantityRequested INT NOT NULL,
     FOREIGN KEY (PatientReqID) REFERENCES HCPatientRequisition(PatientReqID) ON DELETE CASCADE,
     FOREIGN KEY (ItemID) REFERENCES Item(ItemID) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

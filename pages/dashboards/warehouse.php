@@ -20,6 +20,13 @@ foreach ($inventory as $batch) {
     if ($expiry < $threeMonths) $nearlyExpiredItems++;
 }
 
+$pendingPatientReqsCount = 0;
+if (isset($patientRequisitions)) {
+    foreach ($patientRequisitions as $pr) {
+        if ($pr['StatusType'] === 'Pending') $pendingPatientReqsCount++;
+    }
+}
+
 ?>
 
 <div class="space-y-8 animate-fade-in">
@@ -39,7 +46,23 @@ foreach ($inventory as $batch) {
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <?php 
+    $isLevel2 = ($userRole === 'Administrator' || $userRole === 'Head Pharmacist');
+    $gridCols = $isLevel2 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3';
+    ?>
+    <div class="grid grid-cols-1 <?php echo $gridCols; ?> gap-6">
+        <?php if ($isLevel2): ?>
+        <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow bg-teal-50/30 dark:bg-teal-900/10 border-teal-100 dark:border-teal-900/30" onclick="window.location.href='index.php?page=patient_requisitions'">
+            <div class="flex items-center justify-between mb-4">
+                <div class="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-2xl">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </div>
+                <span class="status-badge status-pending">New Request</span>
+            </div>
+            <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Patient Requisitions</p>
+            <h3 class="text-3xl font-bold text-slate-900 dark:text-white mt-1"><?php echo $pendingPatientReqsCount; ?></h3>
+        </div>
+        <?php endif; ?>
         <div class="stat-card cursor-pointer hover:shadow-xl transition-shadow" onclick="window.location.href='index.php?page=issuance'">
             <div class="flex items-center justify-between mb-4">
                 <div class="p-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 rounded-2xl">
