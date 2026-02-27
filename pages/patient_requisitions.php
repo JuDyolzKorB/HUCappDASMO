@@ -100,6 +100,9 @@ $tab = $_GET['tab'] ?? 'requisitions';
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                                 <button @click="viewRequisition(<?php echo htmlspecialchars(json_encode($pr)); ?>)" class="text-primary hover:underline font-bold mr-3">View</button>
+                                <?php if ($pr['StatusType'] === 'Approved'): ?>
+                                    <button @click="updateStatus('<?php echo $pr['PatientReqID']; ?>', 'Completed')" class="text-blue-600 hover:text-blue-700 font-bold mr-3">Dispense</button>
+                                <?php endif; ?>
                                 <?php if (($userRole === 'Administrator' || $userRole === 'Head Pharmacist') && $pr['StatusType'] === 'Pending'): ?>
                                     <button @click="updateStatus('<?php echo $pr['PatientReqID']; ?>', 'Approved')" class="text-green-600 hover:text-green-700 font-bold mr-3">Approve</button>
                                     <button @click="updateStatus('<?php echo $pr['PatientReqID']; ?>', 'Rejected')" class="text-red-600 hover:text-red-700 font-bold">Reject</button>

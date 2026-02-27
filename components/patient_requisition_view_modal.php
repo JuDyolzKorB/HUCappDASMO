@@ -12,6 +12,23 @@
     formatDate(dateStr) {
         if (!dateStr) return '';
         return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    },
+    updateStatus(reqId, status) {
+        if (!confirm('Are you sure you want to change status to ' + status + '?')) return;
+        const formData = new FormData();
+        formData.append('action', 'update_patient_requisition_status');
+        formData.append('requisitionId', reqId);
+        formData.append('status', status);
+
+        fetch('api.php', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
     }
 }" 
 @open-patient-requisition-view-modal.window="open($event.detail.requisition)"
@@ -80,6 +97,11 @@ x-cloak>
                         <button @click="close()" class="flex-1 px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
                             Close
                         </button>
+                        <template x-if="req.StatusType === 'Approved'">
+                            <button @click="updateStatus(req.PatientReqID, 'Completed')" class="flex-1 px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg transition-all">
+                                Dispense Medicine
+                            </button>
+                        </template>
                     </div>
                 </div>
             </template>

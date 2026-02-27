@@ -334,7 +334,7 @@ try {
         }
         
         $supplierId = $_POST['supplierId'] ?? '';
-        $healthCenterId = $_POST['healthCenterId'] ?? ''; // Changed from WarehouseID
+        $healthCenterId = $_POST['healthCenterId'] ?? '';
         $items = $_POST['items'] ?? [];
         $quantities = $_POST['quantities'] ?? [];
         $expiryDates = $_POST['expiryDates'] ?? [];
@@ -358,7 +358,7 @@ try {
                 $poItems[] = [
                     'ItemID' => $itemId,
                     'QuantityOrdered' => (int)$quantities[$index],
-                    'UnitCost' => 0, // Should be filled if known
+                    'UnitCost' => 0,
                     'ExpiryDate' => !empty($expiryDates[$index]) ? $expiryDates[$index] : null
                 ];
             }
@@ -368,18 +368,49 @@ try {
             echo json_encode(['success' => false, 'message' => 'No valid items to order']);
             exit;
         }
+
+        // Handle document reference file upload
+        $refFilePath = null;
+        if (!empty($_FILES['refDocument']['name'])) {
+            $file = $_FILES['refDocument'];
+            $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+            $allowedExts  = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            
+            if (!in_array($ext, $allowedExts)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only PDF and images are allowed.']);
+                exit;
+            }
+            if ($file['size'] > 10 * 1024 * 1024) { // 10MB limit
+                echo json_encode(['success' => false, 'message' => 'File too large. Maximum 10MB.']);
+                exit;
+            }
+
+            $uploadDir = __DIR__ . '/uploads/po_docs/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+            $fileName = 'po_ref_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                $refFilePath = 'uploads/po_docs/' . $fileName;
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to save uploaded file.']);
+                exit;
+            }
+        }
         
         $newPO = [
             'UserID' => $_SESSION['user']['UserID'],
             'SupplierID' => $supplierId,
-            'SupplierName' => $supplierName, // Kept for logic if db.php uses it
-            'SupplierAddress' => $supplierAddress, // Kept for logic if db.php uses it
+            'SupplierName' => $supplierName,
+            'SupplierAddress' => $supplierAddress,
             'HealthCenterID' => !empty($healthCenterId) ? $healthCenterId : null,
             'ContractNumber' => $_POST['contractNumber'] ?? null,
             'ContractStartDate' => $_POST['contractStartDate'] ?? null,
             'ContractEndDate' => $_POST['contractEndDate'] ?? null,
             'ContractAmount' => $_POST['contractAmount'] ?? null,
             'DocumentType' => $_POST['documentType'] ?? 'PO',
+            'RefFileType' => $_POST['refFileType'] ?? null,
+            'RefFilePath' => $refFilePath,
             'PODate' => date('Y-m-d\TH:i:s\Z'),
             'StatusType' => 'Pending',
             'ProcurementOrderItems' => $poItems
@@ -1039,28 +1070,61 @@ try {
         }
 
     } elseif ($action === 'add_item') {
-        $itemName = $_POST['itemName'] ?? '';
-        $itemType = $_POST['itemType'] ?? '';
-        $unit = $_POST['unitOfMeasure'] ?? '';
-        
+        $itemName    = $_POST['itemName'] ?? '';
+        $itemType    = $_POST['itemType'] ?? '';
+        $unit        = $_POST['unitOfMeasure'] ?? '';
+
+        // Optional batch fields
+        $batchId    = isset($_POST['batchId']) && $_POST['batchId'] !== '' ? (int)$_POST['batchId'] : null;
+        $lotNumber  = $_POST['lotNumber'] ?? '';
+        $batchQty   = isset($_POST['batchQty']) && $_POST['batchQty'] !== '' ? (int)$_POST['batchQty'] : null;
+        $unitCost   = isset($_POST['unitCost']) && $_POST['unitCost'] !== '' ? (float)$_POST['unitCost'] : null;
+        $expiryDate = $_POST['expiryDate'] ?? '';
+        $warehouseId = $_POST['warehouseId'] ?? 1;
+
         if (empty($itemName)) {
             echo json_encode(['success' => false, 'message' => 'Item name is required']);
             exit;
         }
 
         global $db;
+        $brand      = $_POST['brand'] ?? '';
+        $dosageUnit = $_POST['dosageUnit'] ?? '';
         $res = $db->execute(
-            "INSERT INTO Item (ItemName, ItemType, UnitOfMeasure) VALUES (?, ?, ?)",
-            [$itemName, $itemType, $unit]
+            "INSERT INTO Item (ItemName, Brand, ItemType, UnitOfMeasure, DosageUnit) VALUES (?, ?, ?, ?, ?)",
+            [$itemName, $brand ?: null, $itemType, $unit, $dosageUnit ?: null]
         );
-        
+
         if ($res) {
-             $newItemIdAsInt = $db->lastInsertId();
-             $newItemId = 'I' . str_pad($newItemIdAsInt, 4, '0', STR_PAD_LEFT);
-             log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Added item $newItemId ($itemName)");
-             echo json_encode(['success' => true]);
+            $newItemIdAsInt = $db->lastInsertId();
+            $newItemId = 'I' . str_pad($newItemIdAsInt, 4, '0', STR_PAD_LEFT);
+            log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Added item $newItemId ($itemName)");
+
+            // If a quantity was provided, create the initial batch
+            if ($batchQty !== null && $batchQty > 0) {
+                $expiryParam = !empty($expiryDate) ? $expiryDate : null;
+                $lotParam    = !empty($lotNumber) ? $lotNumber : null;
+
+                if ($batchId !== null) {
+                    // User specified an explicit BatchID
+                    $db->execute(
+                        "INSERT INTO CentralInventoryBatch (BatchID, ItemID, LotNumber, QuantityOnHand, UnitCost, ExpiryDate, WarehouseID, DateReceived)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE())",
+                        [$batchId, $newItemIdAsInt, $lotParam, $batchQty, $unitCost, $expiryParam, $warehouseId]
+                    );
+                } else {
+                    // Let DB auto-assign BatchID
+                    $db->execute(
+                        "INSERT INTO CentralInventoryBatch (ItemID, LotNumber, QuantityOnHand, UnitCost, ExpiryDate, WarehouseID, DateReceived)
+                         VALUES (?, ?, ?, ?, ?, ?, CURDATE())",
+                        [$newItemIdAsInt, $lotParam, $batchQty, $unitCost, $expiryParam, $warehouseId]
+                    );
+                }
+            }
+
+            echo json_encode(['success' => true]);
         } else {
-             echo json_encode(['success' => false, 'message' => 'Failed to save item']);
+            echo json_encode(['success' => false, 'message' => 'Failed to save item']);
         }
         
     } elseif ($action === 'update_item') {
@@ -1081,9 +1145,11 @@ try {
         }
         
         global $db;
+        $brand      = $_POST['brand'] ?? '';
+        $dosageUnit = $_POST['dosageUnit'] ?? '';
         $res = $db->execute(
-            "UPDATE Item SET ItemName = ?, ItemType = ?, UnitOfMeasure = ? WHERE ItemID = ?",
-            [$itemName, $itemType, $unit, $resolvedItemId]
+            "UPDATE Item SET ItemName = ?, Brand = ?, ItemType = ?, UnitOfMeasure = ?, DosageUnit = ? WHERE ItemID = ?",
+            [$itemName, $brand ?: null, $itemType, $unit, $dosageUnit ?: null, $resolvedItemId]
         );
         
         if ($res) {

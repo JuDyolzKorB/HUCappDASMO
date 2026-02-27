@@ -50,6 +50,17 @@
                     <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Contract Amount:</p>
                     <p id="poContractAmountDisplay" class="text-sm text-slate-700 dark:text-slate-200 font-semibold"></p>
                 </div>
+                <!-- Document Reference Row -->
+                <div id="poRefDocRow" class="flex items-center gap-3 col-span-2 hidden">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Ref. Document:</p>
+                    <div class="flex items-center gap-2">
+                        <span id="poRefFileTypeBadge" class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"></span>
+                        <a id="poRefFileLink" href="#" target="_blank" class="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-800 font-medium transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                            View File
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <!-- Ordered Items Section -->
@@ -109,6 +120,16 @@ function openPODetailsModal(po) {
     const end = po.EndDate ? new Date(po.EndDate).toLocaleDateString() : '';
     document.getElementById('poContractPeriod').textContent = (start || end) ? `${start} - ${end}` : 'N/A';
     document.getElementById('poContractAmountDisplay').textContent = po.ContractAmount ? `₱${parseFloat(po.ContractAmount).toLocaleString(undefined, {minimumFractionDigits: 2})}` : 'N/A';
+
+    // Document Reference
+    const refRow = document.getElementById('poRefDocRow');
+    if (po.RefFilePath) {
+        document.getElementById('poRefFileTypeBadge').textContent = po.RefFileType || 'Document';
+        document.getElementById('poRefFileLink').href = po.RefFilePath;
+        refRow.classList.remove('hidden');
+    } else {
+        refRow.classList.add('hidden');
+    }
     
     // Status Badge
     const statusBadge = document.getElementById('poStatusBadge');
