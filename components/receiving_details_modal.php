@@ -2,7 +2,7 @@
 // components/receiving_details_modal.php
 ?>
 
-<div id="receivingDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4" onclick="if(event.target === this) closeReceivingDetailsModal()">
+<div id="receivingDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target === this) closeReceivingDetailsModal()">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">

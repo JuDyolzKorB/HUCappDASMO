@@ -4,8 +4,8 @@ $healthCenters = get_data('health_centers');
 $items = get_data('items');
 ?>
 
-<div id="requisitionFormModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex justify-center items-center p-4 overflow-y-auto">
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl transform transition-all my-8 relative">
+<div id="requisitionFormModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closeRequisitionFormModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all my-8 relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <form id="requisitionForm" onsubmit="handleRequisitionSubmit(event)">
             <input type="hidden" name="action" value="create_requisition">
             <div class="p-6">

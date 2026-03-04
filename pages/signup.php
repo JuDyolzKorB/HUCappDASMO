@@ -6,14 +6,14 @@
         <!-- Left Panel - Hero -->
         <div class="auth-branding hidden md:flex animated-gradient">
             <div class="logo-container">
-                <img src="assets/img/logo.png" alt="Uswag Logo" class="w-16 h-16">
+                <img src="assets/img/logo.png" alt="Pharmacy Logo" class="w-16 h-16">
             </div>
             <p class="text-sm font-medium text-white/80 mb-1">Iloilo City Government</p>
-            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Uswag Iloilo City Pharmacy</h1>
+            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Iloilo City Pharmacy</h1>
             <p class="text-sm text-white/90 mb-6 max-w-xs px-2 leading-relaxed font-normal">A comprehensive, end-to-end inventory management system designed for modern healthcare.</p>
             <div class="testimonial-box bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-lg">
                 <p class="text-xs italic leading-relaxed font-medium">"This system has revolutionized our inventory control, enhancing accountability and ensuring the efficient delivery of medical supplies for the people of Iloilo City."</p>
-                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Uswag Iloilo City Pharmacy</p>
+                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Iloilo City Pharmacy</p>
             </div>
         </div>
 
@@ -108,7 +108,7 @@
             
             <div class="mt-6 text-center border-t border-slate-50 pt-4">
                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    &copy; 2026 USWAG ILOILO CITY
+                    &copy; 2026 ILOILO CITY
                 </p>
             </div>
         </div>

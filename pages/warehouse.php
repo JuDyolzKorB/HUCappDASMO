@@ -37,7 +37,8 @@ $warehouses = get_data('warehouses');
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $warehouse['WarehouseType']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 font-mono"><?php echo $warehouse['WarehouseID']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="#" class="text-primary hover:text-cyan-900 dark:hover:text-cyan-400">Edit</a>
+                                <?php $whJson = htmlspecialchars(json_encode($warehouse), ENT_QUOTES, 'UTF-8'); ?>
+                                <button onclick='openEditWarehouseModal(<?php echo $whJson; ?>)' class="text-primary hover:text-cyan-900 dark:hover:text-cyan-400 font-medium">Edit</button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -49,7 +50,7 @@ $warehouses = get_data('warehouses');
 </div>
 
 <!-- Add Warehouse Modal -->
-<div id="addWarehouseModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
+<div id="addWarehouseModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999] flex items-center justify-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
     <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/60 dark:border-slate-700/60 animate-fade-in" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
@@ -122,6 +123,8 @@ $warehouses = get_data('warehouses');
         </form>
     </div>
 </div>
+
+<?php include 'components/edit_warehouse_modal.php'; ?>
 
 <script>
 document.getElementById('addWarehouseForm').addEventListener('submit', function(e) {

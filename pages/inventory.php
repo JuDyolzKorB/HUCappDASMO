@@ -198,7 +198,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
     </div>
 </div>
 
-<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999] flex items-center justify-center p-4" onclick="if(event.target === this) closeItemModal()">
     <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
             <h3 id="modalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Add New Item</h3>

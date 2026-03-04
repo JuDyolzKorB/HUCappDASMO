@@ -81,7 +81,8 @@ $totalSuppliers = count($suppliers);
                                     <?php echo htmlspecialchars($supplier['ContactInfo'] ?? '-'); ?>
                                 </td>
                                 <td class="px-6 py-4 text-right">
-                                    <button class="text-teal-600 hover:text-teal-800 font-medium transition-colors">Edit</button>
+                                    <?php $sJson = htmlspecialchars(json_encode($supplier), ENT_QUOTES, 'UTF-8'); ?>
+                                    <button onclick='openEditSupplierModal(<?php echo $sJson; ?>)' class="text-teal-600 hover:text-teal-800 font-medium transition-colors">Edit</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -93,3 +94,4 @@ $totalSuppliers = count($suppliers);
 </div>
 
 <?php include 'components/add_supplier_modal.php'; ?>
+<?php include 'components/edit_supplier_modal.php'; ?>

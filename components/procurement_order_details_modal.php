@@ -2,7 +2,7 @@
 // components/purchase_order_details_modal.php
 ?>
 
-<div id="poDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closePODetailsModal()">
+<div id="poDetailsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closePODetailsModal()">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 my-8" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">

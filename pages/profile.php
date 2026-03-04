@@ -25,7 +25,7 @@ $user = getCurrentUser();
                 </div>
                 <div class="bg-white dark:bg-slate-800/50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt class="text-sm font-medium text-slate-500 dark:text-slate-400">Application for</dt>
-                    <dd class="mt-1 text-sm text-slate-900 dark:text-white sm:mt-0 sm:col-span-2">Uswag Iloilo City Pharmacy</dd>
+                    <dd class="mt-1 text-sm text-slate-900 dark:text-white sm:mt-0 sm:col-span-2">Iloilo City Pharmacy</dd>
                 </div>
                 <div class="bg-gray-50 dark:bg-slate-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt class="text-sm font-medium text-slate-500 dark:text-slate-400">Role</dt>

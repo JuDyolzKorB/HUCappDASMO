@@ -65,7 +65,7 @@
         class="fixed inset-0 z-[9999] overflow-y-auto"
         x-cloak>
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="fixed inset-0 bg-slate-900/60 transition-opacity" @click="isOpen = false"></div>
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="isOpen = false"></div>
 
                 <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-8 border border-slate-200 dark:border-slate-700">
                     <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6" x-text="patient.PatientID ? 'Edit Patient' : 'Add New Patient'"></h2>

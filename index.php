@@ -54,7 +54,7 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uswag Iloilo City Pharmacy - <?php echo $pageTitle; ?></title>
+    <title>Iloilo City Pharmacy - <?php echo $pageTitle; ?></title>
     <!-- Google Fonts: Inter & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -161,5 +161,40 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
         </main>
     <?php endif; ?>
 
+    <script>
+        /**
+         * GLOBAL MODAL TELEPORTATION & STANDARDIZATION
+         * Ensures all modals break out of any nested stacking context by moving them
+         * to be direct children of the document body.
+         */
+        const teleportModals = () => {
+            const modals = document.querySelectorAll('[id$="Modal"], .fixed.inset-0');
+            modals.forEach(modal => {
+                // Skip Alpine teleported/managed ones if they already handled it
+                if (modal.hasAttribute('x-teleport') || modal.closest('[x-data]')) {
+                    return; 
+                }
+                
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+            });
+        };
+
+        // Run on load and whenever a new item might be injected
+        document.addEventListener('DOMContentLoaded', teleportModals);
+        
+        // Intercept common modal triggers to ensure they are teleported before showing
+        const originalOpenFunctions = ['openAddPOModal', 'openEditSupplierModal', 'openEditWarehouseModal', 'openAddItemModal'];
+        originalOpenFunctions.forEach(fnName => {
+            const originalFn = window[fnName];
+            if (typeof originalFn === 'function') {
+                window[fnName] = function(...args) {
+                    teleportModals();
+                    return originalFn.apply(this, args);
+                };
+            }
+        });
+    </script>
 </body>
 </html>

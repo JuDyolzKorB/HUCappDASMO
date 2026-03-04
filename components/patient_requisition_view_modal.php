@@ -36,7 +36,7 @@ x-show="isOpen"
 class="fixed inset-0 z-[9999] overflow-y-auto" 
 x-cloak>
     <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="fixed inset-0 bg-slate-900/60 transition-opacity" @click="close()"></div>
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="close()"></div>
 
         <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl p-8 border border-slate-200 dark:border-slate-700">
             <template x-if="req">

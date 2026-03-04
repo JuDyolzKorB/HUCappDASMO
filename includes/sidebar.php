@@ -21,7 +21,7 @@ $menuItems = [
 <aside class="bg-slate-900 text-white w-64 flex-shrink-0 hidden md:flex flex-col h-full overflow-hidden transition-all duration-300 border-r border-slate-800">
     <div class="h-16 flex items-center px-6 border-b border-slate-800 bg-slate-900">
         <h1 class="text-lg font-extrabold tracking-tight font-display">
-            <span class="text-teal-400">USWAG</span> <span class="text-slate-400">PHARMA</span>
+            <span class="text-teal-400">ILOILO CITY</span> <span class="text-slate-400">PHARMA</span>
         </h1>
     </div>
 

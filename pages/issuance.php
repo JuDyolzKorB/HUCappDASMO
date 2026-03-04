@@ -88,14 +88,15 @@ $tab = $_GET['tab'] ?? 'request';
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded-l-xl">Issuance ID</th>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Requisition ID</th>
                         <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Issued By</th>
-                        <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded-r-xl">Date</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date</th>
+                        <th class="px-6 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded-r-xl">Action</th>
                      </tr>
                 </thead>
                  <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-100/50 dark:divide-slate-700/50">
                     <?php 
                     if (empty($issuances)): 
                     ?>
-                        <tr><td colspan="4" class="px-6 py-12 text-center text-slate-400 font-medium italic">No issuance history found.</td></tr>
+                        <tr><td colspan="5" class="px-6 py-12 text-center text-slate-400 font-medium italic">No issuance history found.</td></tr>
                     <?php else: 
                         $users = get_data('users');
                         $reqs = get_data('requisitions');
@@ -130,6 +131,13 @@ $tab = $_GET['tab'] ?? 'request';
                             <td class="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-400 uppercase tracking-tight">
                                 <?php echo isset($iss['DateIssued']) ? date('M d, Y • h:i A', strtotime($iss['DateIssued'])) : 'N/A'; ?>
                             </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <?php $issJson = htmlspecialchars(json_encode($iss), ENT_QUOTES, 'UTF-8'); ?>
+                                <button onclick='openIssuanceDetailsModal(<?php echo $issJson; ?>, "<?php echo addslashes($reqNum); ?>", "<?php echo addslashes($issuedByName); ?>")'
+                                    class="text-primary hover:text-teal-900 dark:hover:text-teal-400 font-bold px-3 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all">
+                                    View
+                                </button>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -139,3 +147,5 @@ $tab = $_GET['tab'] ?? 'request';
     </div>
     <?php endif; ?>
 </div>
+
+<?php include 'components/issuance_details_modal.php'; ?>

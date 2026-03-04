@@ -1,5 +1,5 @@
 <!-- Add Supplier Modal -->
-<div id="addSupplierModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex justify-center items-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
+<div id="addSupplierModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         
         <!-- Modal Header -->

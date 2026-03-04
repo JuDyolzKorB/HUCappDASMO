@@ -22,6 +22,7 @@ $hcId = $user['HealthCenterID'] ?? null;
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Batch ID</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Quantity</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Expiry</th>
+                        <th class="px-6 py-3 text-right text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Action</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-slate-800">
@@ -37,6 +38,13 @@ $hcId = $user['HealthCenterID'] ?? null;
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $item['BatchID']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo number_format($item['QuantityOnHand']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo $item['ExpiryDate'] ?: 'N/A'; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <?php $itemJson = htmlspecialchars(json_encode($item), ENT_QUOTES, 'UTF-8'); ?>
+                                <button onclick='openHCInventoryDetailsModal(<?php echo $itemJson; ?>)'
+                                    class="text-primary hover:text-teal-900 dark:hover:text-teal-400 font-bold px-3 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all">
+                                    View
+                                </button>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -45,3 +53,5 @@ $hcId = $user['HealthCenterID'] ?? null;
         </div>
     </div>
 </div>
+
+<?php include 'components/hc_inventory_details_modal.php'; ?>
