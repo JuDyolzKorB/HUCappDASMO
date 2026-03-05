@@ -1,5 +1,7 @@
 <?php
 // components/requisition_form_modal.php
+$user = getCurrentUser();
+$sessionHCId = $user['HealthCenterID'] ?? null;
 $healthCenters = get_data('health_centers');
 $items = get_data('items');
 ?>

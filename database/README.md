@@ -67,7 +67,24 @@ If you previously used `constants.ts` and want to populate the database with tha
 - Review error messages in the migration output
 - Verify database tables were created successfully
 
-## Database Structure
+## Multi-Center Setup (Health Center Staff)
+
+If you need to set up separate databases for different health centers:
+
+### Using the Automated Utility
+1. Ensure your central warehouse database (`hucappdb`) is set up first.
+2. Navigate to: 
+   ```
+   http://localhost/HUCappDASMO/database/create_hc_database.php?name=HC_North
+   ```
+   *(Replace `HC_North` with your health center's unique name)*
+3. The script will create a new database and initialize the staff-specific schema.
+
+### Manual Setup
+1. Create a new database in **phpMyAdmin**.
+2. Import `database/health_center_schema.sql` into that new database.
+
+## Database Structure (Central Warehouse)
 
 The database includes these main tables:
 - **User** - System users

@@ -32,6 +32,17 @@ $procurementOrders = get_data('procurement_orders');
 $inventory = get_data('inventory');
 $patientRequisitions = get_data('patient_requisitions');
 
+// Apply Health Center Filtering
+$healthCenterId = $_SESSION['user']['HealthCenterID'] ?? null;
+if ($healthCenterId) {
+    $requisitions = array_filter($requisitions, function($r) use ($healthCenterId) {
+        return $r['HealthCenterID'] == $healthCenterId;
+    });
+    $procurementOrders = array_filter($procurementOrders, function($po) use ($healthCenterId) {
+        return $po['HealthCenterID'] == $healthCenterId;
+    });
+}
+
 if ($userRole !== 'Administrator' && $dashboardFile) {
     include $dashboardFile;
 } else {

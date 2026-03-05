@@ -4,7 +4,7 @@ $health_centers = get_data('health_centers');
 ?>
 <div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false, selectedRole: 'Administrator' }">
     <div class="auth-card animate-premium-in">
-        <!-- Left Panel - Hero -->
+        <!-- ... (branding panel unchanged) ... -->
         <div class="auth-branding hidden md:flex animated-gradient">
             <div class="logo-container">
                 <img src="assets/img/logo.png" alt="Pharmacy Logo" class="w-16 h-16">

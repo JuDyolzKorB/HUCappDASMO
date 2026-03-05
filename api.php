@@ -32,7 +32,19 @@ try {
             $user['LastName'] = $user['LastName'] ?? $user['LName'] ?? '';
             $user['Role'] = $user['Role'] ?? 'User'; // Ensure Role is set
             
+            // Handle Health Center Context (Pre-assigned at Signup)
+            if ($user['Role'] === 'Health Center Staff' && empty($user['HealthCenterID'])) {
+                echo json_encode(['success' => false, 'message' => 'No health center assigned to this account. Please contact an administrator.']);
+                exit;
+            }
+
             $_SESSION['user'] = $user;
+            
+            // Proactively trigger provisioning if a health center is assigned
+            if (isset($user['HealthCenterID'])) {
+                Database::getHCConnection($user['HealthCenterID']);
+            }
+
             log_security_event($user['UserID'], 'Login', 'Success', "User logged in as {$user['Role']}");
             echo json_encode(['success' => true, 'redirect' => 'index.php?page=dashboard']);
         } else {
@@ -40,6 +52,19 @@ try {
             log_security_event('unknown', 'Login', 'Failure', "Failed login attempt for username: $username");
             echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
         }
+    } elseif ($action === 'switch_health_center') {
+        if (!isset($_SESSION['user']) || $_SESSION['user']['Role'] !== 'Administrator') {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+        $hcId = $_POST['healthCenterId'] ?? null;
+        if ($hcId === 'none') {
+            unset($_SESSION['user']['HealthCenterID']);
+        } else {
+            $_SESSION['user']['HealthCenterID'] = $hcId;
+        }
+        echo json_encode(['success' => true]);
+        exit;
     } elseif ($action === 'logout') {
         if (isset($_SESSION['user'])) {
             log_security_event($_SESSION['user']['UserID'], 'Logout', 'Success', 'User logged out');
@@ -71,6 +96,11 @@ try {
         ];
         
         if (save_data('users', [$newUser])) {
+             // Proactively trigger provisioning if a health center is assigned
+             if ($healthCenterId) {
+                Database::getHCConnection($healthCenterId);
+             }
+
              // UserID is unknown here unless we fetch or refactor save_data to return it.
              // For logs, we can just say 'New User'.
              log_security_event('system', 'Signup', 'Success', "New user registered: $username");
@@ -78,6 +108,20 @@ try {
         } else {
              echo json_encode(['success' => false, 'message' => 'Failed to save user']);
         }
+    } elseif ($action === 'check_username') {
+        $username = $_POST['username'] ?? '';
+        global $db;
+        $user = $db->find('users', 'Username', $username);
+        if ($user) {
+            echo json_encode([
+                'success' => true, 
+                'healthCenterId' => $user['HealthCenterID'] ?? '',
+                'role' => $user['Role'] ?? ''
+            ]);
+        } else {
+            echo json_encode(['success' => false]);
+        }
+        exit;
     } elseif ($action === 'add_warehouse') {
         $newWarehouse = [
             'WarehouseName' => $_POST['warehouseName'] ?? '',
@@ -269,8 +313,8 @@ try {
         }
 
     } elseif ($action === 'create_requisition') {
+        // ... (existing code for central requisitions)
         try {
-            // Validate user session
             if (!isset($_SESSION['user']) || !isset($_SESSION['user']['UserID'])) {
                 echo json_encode(['success' => false, 'message' => 'User not authenticated']);
                 exit;
@@ -281,13 +325,11 @@ try {
             $healthCenterAddress = $_POST['healthCenterAddress'] ?? '';
             $items = $_POST['items'] ?? []; 
             
-            // Validate health center
             if (empty($healthCenterId) && empty($healthCenterName)) {
                 echo json_encode(['success' => false, 'message' => 'Health center is required']);
                 exit;
             }
             
-            // Validate items
             if (empty($items) || !is_array($items)) {
                 echo json_encode(['success' => false, 'message' => 'No items provided']);
                 exit;
@@ -325,6 +367,65 @@ try {
             }
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Server error occurred while saving requisition']);
+        }
+
+    } elseif ($action === 'create_local_requisition') {
+        try {
+            if (!isset($_SESSION['user']) || !isset($_SESSION['user']['UserID'])) {
+                echo json_encode(['success' => false, 'message' => 'User not authenticated']);
+                exit;
+            }
+
+            $user = $_SESSION['user'];
+            $hcId = $user['HealthCenterID'] ?? null;
+            if (!$hcId) {
+                echo json_encode(['success' => false, 'message' => 'No health center assigned to your account']);
+                exit;
+            }
+
+            $hcConn = Database::getHCConnection($hcId);
+            if (!$hcConn) {
+                echo json_encode(['success' => false, 'message' => 'Could not connect to health center database']);
+                exit;
+            }
+
+            $staffName = $_POST['staffName'] ?? '';
+            $items = $_POST['items'] ?? [];
+
+            if (empty($staffName)) {
+                echo json_encode(['success' => false, 'message' => 'Staff name is required']);
+                exit;
+            }
+
+            // 1. Create or Find Staff in local DB
+            $stmt = $hcConn->prepare("SELECT StaffID FROM hc_staff WHERE FirstName = ? LIMIT 1");
+            $stmt->execute([$staffName]);
+            $staff = $stmt->fetch();
+            
+            if ($staff) {
+                $staffId = $staff['StaffID'];
+            } else {
+                $stmt = $hcConn->prepare("INSERT INTO hc_staff (FirstName, LastName, Role, Username, Password) VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$staffName, '', 'Staff', strtolower(str_replace(' ', '.', $staffName)), 'nopass']);
+                $staffId = $hcConn->lastInsertId();
+            }
+
+            // 2. Create local requisition
+            $stmt = $hcConn->prepare("INSERT INTO hc_requisition (StaffID, RequestDate, StatusType) VALUES (?, ?, ?)");
+            $stmt->execute([$staffId, date('Y-m-d H:i:s'), 'Pending']);
+            $localReqId = $hcConn->lastInsertId();
+
+            // 3. Add items
+            foreach ($items as $item) {
+                $stmt = $hcConn->prepare("INSERT INTO hc_requisitionitem (HCRequisitionID, ItemID, QuantityRequested) VALUES (?, ?, ?)");
+                $stmt->execute([$localReqId, $item['itemId'], $item['quantity']]);
+            }
+
+            echo json_encode(['success' => true, 'message' => 'Local requisition created successfully']);
+            
+        } catch (Exception $e) {
+            error_log("Local Req Error: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         }
 
     } elseif ($action === 'create_procurement_order') {
@@ -447,6 +548,7 @@ try {
         
         if ($res) {
             log_security_event($_SESSION['user']['UserID'], 'Procurement Order', 'Success', "Updated PO $poId status to $status");
+            $db->broadcastUpdate('procurement_orders_updated');
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);
@@ -478,6 +580,7 @@ try {
             );
             
             log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Updated requisition $reqId status to $status");
+            $db->broadcastUpdate('requisitions_updated');
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Database error']);

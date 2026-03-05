@@ -275,6 +275,7 @@ $contracts = get_data('contracts');
         </form>
     </div>
 </div>
+</template>
 
 <script>
 function toggleSupplierInput(checkbox) {
@@ -304,8 +305,11 @@ document.getElementById('poSupplier').addEventListener('change', function() {
 });
 
 // Initial item row
+// Initial item row
 function closeAddPOModal() {
-    document.getElementById('addPOModal').classList.add('hidden');
+    // Dispatch event for Alpine to catch
+    window.dispatchEvent(new CustomEvent('close-add-po-modal'));
+    
     document.getElementById('addPOForm').reset();
     
     // Reset manual toggle
