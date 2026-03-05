@@ -1,9 +1,6 @@
 <!-- Add Supplier Modal -->
-<div id="addSupplierModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
-    <!-- Backdrop with blur -->
-    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="document.getElementById('addSupplierModal').classList.add('hidden')"></div>
-    
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+<div id="addSupplierModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target === this) this.classList.add('hidden')">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">

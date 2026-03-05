@@ -5,12 +5,8 @@ $items = get_data('items');
 $contracts = get_data('contracts');
 ?>
 
-<template x-teleport="body">
-<div id="addPOModal" class="fixed inset-0 z-[100] flex justify-center items-center p-4 hidden" :class="{ 'hidden': !showAddPOModal, 'flex': showAddPOModal }" x-show="showAddPOModal" x-cloak>
-    <!-- Backdrop with blur -->
-    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="closeAddPOModal()" x-show="showAddPOModal" x-transition.opacity></div>
-    
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+<div id="addPOModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target === this) closeAddPOModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
             <h3 class="text-xl font-bold text-slate-900 dark:text-white">New Procurement Order</h3>
@@ -22,7 +18,7 @@ $contracts = get_data('contracts');
         </div>
         
         <!-- Modal Body -->
-        <form id="addPOForm" class="p-6 space-y-5">
+        <form id="addPOForm" class="p-6 space-y-5 overflow-y-auto max-h-[80vh]" enctype="multipart/form-data">
             <input type="hidden" name="action" value="create_procurement_order">
             
             <!-- Supplier & Health Center Grid -->
@@ -100,44 +96,53 @@ $contracts = get_data('contracts');
                 </div>
             </div>
 
-            <!-- Document & Contract Grid -->
-            <div class="grid grid-cols-2 gap-4">
-                <!-- Document Type -->
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poDocumentType">
-                        Document Type
+            <!-- Document Reference Type & File Upload -->
+            <div class="space-y-3">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Document Reference Type</label>
+                <div class="flex gap-2 flex-wrap" id="refTypeButtons">
+                    <label class="ref-type-btn flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 dark:border-slate-700 cursor-pointer transition-all hover:border-teal-400 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 dark:has-[:checked]:bg-teal-900/20">
+                        <input type="radio" name="refFileType" value="Purchase Order" class="sr-only" onchange="updateRefTypeLabel()">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Purchase Order</span>
                     </label>
-                    <div class="relative">
-                        <select 
-                            class="w-full px-4 py-2.5 pr-10 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all appearance-none cursor-pointer" 
-                            id="poDocumentType" 
-                            name="documentType" 
-                            required>
-                            <option value="Purchase Order">Purchase Order</option>
-                            <option value="Letter of Request">Letter of Request</option>
-                            <option value="Requisition Order">Requisition Order</option>
-                        </select>
-                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </div>
-                    </div>
+                    <label class="ref-type-btn flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 dark:border-slate-700 cursor-pointer transition-all hover:border-teal-400 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 dark:has-[:checked]:bg-teal-900/20">
+                        <input type="radio" name="refFileType" value="Contract" class="sr-only" onchange="updateRefTypeLabel()">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Contract</span>
+                    </label>
+                    <label class="ref-type-btn flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 dark:border-slate-700 cursor-pointer transition-all hover:border-teal-400 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 dark:has-[:checked]:bg-teal-900/20">
+                        <input type="radio" name="refFileType" value="Both" class="sr-only" onchange="updateRefTypeLabel()">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+                        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Both</span>
+                    </label>
                 </div>
 
-                <!-- Contract Number -->
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractNumber">
-                        Contract Number
-                    </label>
-                    <div class="relative">
-                        <input 
-                            type="text" 
-                            class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
-                            id="poContractNumber" 
-                            name="contractNumber"
-                            placeholder="Enter contract number...">
+                <!-- File Upload Zone -->
+                <div id="refFileUploadZone"
+                     class="relative border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-teal-400 dark:hover:border-teal-500 transition-all"
+                     onclick="document.getElementById('refDocument').click()"
+                     ondragover="event.preventDefault(); this.classList.add('border-teal-400','bg-teal-50/30')"
+                     ondragleave="this.classList.remove('border-teal-400','bg-teal-50/30')"
+                     ondrop="handleRefDrop(event)">
+                    <input type="file" id="refDocument" name="refDocument" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="handleRefFileChange(this)">
+                    <div id="refFileDisplay" class="space-y-1">
+                        <svg class="mx-auto w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Click or drag &amp; drop to upload</p>
+                        <p class="text-xs text-slate-400">PDF, JPG, PNG, WEBP — max 10MB</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- Contract Number -->
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300" for="poContractNumber">Contract Number</label>
+                <div class="relative">
+                    <input
+                        type="text"
+                        class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all"
+                        id="poContractNumber"
+                        name="contractNumber"
+                        placeholder="Enter contract number...">
                 </div>
             </div>
 
@@ -320,8 +325,16 @@ function closeAddPOModal() {
         rows[i].remove();
     }
     
-    // Reset one row expiry
-    toggleExpiry(container.querySelector('.po-item-row select'));
+    // Reset file upload UI
+    const refDisplay = document.getElementById('refFileDisplay');
+    if (refDisplay) {
+        refDisplay.innerHTML = `
+            <svg class="mx-auto w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Click or drag &amp; drop to upload</p>
+            <p class="text-xs text-slate-400">PDF, JPG, PNG, WEBP — max 10MB</p>`;
+    }
+    // Reset radio buttons
+    document.querySelectorAll('input[name="refFileType"]').forEach(r => r.checked = false);
 }
 
 const itemsData = <?php echo json_encode($items); ?>;
@@ -369,6 +382,65 @@ function removeItemRow(button) {
     } else {
         alert('At least one item is required');
     }
+}
+
+function updateRefTypeLabel() {
+    // Visual feedback is handled by has-[:checked] CSS
+}
+
+function renderRefFilePreview(file) {
+    const display = document.getElementById('refFileDisplay');
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    display.innerHTML = `
+        <div class="flex items-center gap-3 text-left p-1">
+            <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${isPdf ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}">
+                ${isPdf
+                    ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8 17v-1h8v1H8zm0-3v-1h8v1H8zm0-3V10h5v1H8z"/></svg>'
+                    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>'
+                }
+            </div>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">${file.name}</p>
+                <p class="text-xs text-slate-400">${(file.size / 1024).toFixed(1)} KB</p>
+            </div>
+            <button type="button" onclick="clearRefFile(event)" class="text-red-400 hover:text-red-600 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>`;
+}
+
+function handleRefFileChange(input) {
+    if (input.files && input.files[0]) {
+        renderRefFilePreview(input.files[0]);
+    }
+}
+
+function handleRefDrop(event) {
+    event.preventDefault();
+    const zone = document.getElementById('refFileUploadZone');
+    zone.classList.remove('border-teal-400', 'bg-teal-50/30');
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    const allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(ext)) {
+        alert('Only PDF, JPG, PNG, and WEBP files are allowed.');
+        return;
+    }
+    // Assign to the hidden file input via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('refDocument').files = dt.files;
+    renderRefFilePreview(file);
+}
+
+function clearRefFile(event) {
+    event.stopPropagation();
+    document.getElementById('refDocument').value = '';
+    document.getElementById('refFileDisplay').innerHTML = `
+        <svg class="mx-auto w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Click or drag &amp; drop to upload</p>
+        <p class="text-xs text-slate-400">PDF, JPG, PNG, WEBP — max 10MB</p>`;
 }
 
 document.getElementById('addPOForm').addEventListener('submit', function(e) {

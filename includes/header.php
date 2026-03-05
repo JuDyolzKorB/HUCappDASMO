@@ -32,6 +32,42 @@ try {
 }
 ?>
 <style>[x-cloak] { display: none !important; }</style>
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.store('liveMode', {
+        on: true, // Integrated real-time updates are now active by default
+    });
+
+    // Global poll management
+    let pollInterval = null;
+    const startGlobalPolling = () => {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => {
+            if (Alpine.store('liveMode').on) {
+                // If the page defines a refresh function, use it.
+                // Otherwise do a full reload but ONLY if no modals are open
+                const hasOpenModals = document.querySelector('[role="dialog"]:not([style*="display: none"])') !== null;
+                if (window.refreshPageData && typeof window.refreshPageData === 'function') {
+                    window.refreshPageData();
+                } else if (!hasOpenModals) {
+                    // Full reload fallback for static pages
+                    // Filter out critical interactive pages where reload might lose state
+                    const sensitivePages = ['login', 'signup', 'settings'];
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const currentPage = urlParams.get('page') || 'dashboard';
+                    
+                    if (!sensitivePages.includes(currentPage)) {
+                        console.log('Live Mode: Auto-refreshing page...');
+                        location.reload();
+                    }
+                }
+            }
+        }, 30000); // 30 seconds global poll
+    };
+
+    startGlobalPolling();
+});
+</script>
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
     <div class="px-6 py-3.5 flex justify-between items-center">
         <div class="flex items-center space-x-4">
@@ -107,99 +143,20 @@ try {
             <?php endif; ?>
         </div>
 
-        <div class="flex items-center space-x-2 md:space-x-5">
-            <!-- Theme Toggle -->
-            <button id="theme-toggle" class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all duration-200">
-                <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
-                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
-            </button>
-            
-            <!-- Notifications -->
-            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                <button @click="open = !open" class="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all duration-200 relative">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    <?php if ($unreadCount > 0): ?>
-                    <span class="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center border-2 border-white dark:border-slate-900">
-                        <?php echo $unreadCount; ?>
-                    </span>
-                    <?php endif; ?>
-                </button>
-                
-                <!-- Notifications Dropdown -->
-                <div x-show="open" 
-                     x-transition:enter="transition ease-out duration-200"
-                     x-transition:enter-start="opacity-0 scale-95"
-                     x-transition:enter-end="opacity-100 scale-100"
-                     x-transition:leave="transition ease-in duration-150"
-                     x-transition:leave-start="opacity-100 scale-100"
-                     x-transition:leave-end="opacity-0 scale-95"
-                     class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50"
-                     style="display: none;">
-                    
-                    <!-- Header -->
-                    <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                        <h3 class="text-sm font-bold text-slate-800 dark:text-white">Notifications</h3>
-                        <?php if ($unreadCount > 0): ?>
-                        <span class="text-xs text-slate-500 dark:text-slate-400"><?php echo $unreadCount; ?> unread</span>
-                        <?php endif; ?>
+        <!-- Right Side: Integrated Live Status & Profile -->
+        <div class="flex items-center gap-3">
+            <!-- Integrated Live Status Indicator -->
+            <div x-data x-cloak class="flex items-center gap-2 px-3 py-1.5 bg-slate-100/30 dark:bg-slate-800/30 rounded-xl h-10 border border-transparent">
+                <div class="flex items-center gap-1.5">
+                    <div class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
                     </div>
-                    
-                    <!-- Notifications List -->
-                    <div class="max-h-96 overflow-y-auto">
-                        <?php if (empty($notifications)): ?>
-                        <div class="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                            <svg class="w-12 h-12 mx-auto mb-2 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                            </svg>
-                            <p>No notifications yet</p>
-                        </div>
-                        <?php else: ?>
-                            <?php foreach ($notifications as $notif): ?>
-                            <div class="px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-b-0 <?php echo !$notif['isRead'] ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''; ?>">
-                                <div class="flex items-start gap-3">
-                                    <?php if (!$notif['isRead']): ?>
-                                    <div class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                                    <?php else: ?>
-                                    <div class="w-2 h-2 mt-1.5 flex-shrink-0"></div>
-                                    <?php endif; ?>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 dark:text-white mb-0.5">
-                                            <?php echo htmlspecialchars($notif['title']); ?>
-                                        </p>
-                                        <p class="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                                            <?php echo htmlspecialchars($notif['message']); ?>
-                                        </p>
-                                        <p class="text-[10px] text-slate-400 dark:text-slate-500">
-                                            <?php 
-                                            $time = strtotime($notif['timestamp']);
-                                            $diff = time() - $time;
-                                            if ($diff < 60) echo 'Just now';
-                                            elseif ($diff < 3600) echo floor($diff / 60) . ' min ago';
-                                            elseif ($diff < 86400) echo floor($diff / 3600) . ' hours ago';
-                                            else echo date('M d, Y', $time);
-                                            ?>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <?php if (!empty($notifications)): ?>
-                    <!-- Footer -->
-                    <div class="px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                        <button onclick="markAllAsRead()" class="text-xs text-primary hover:text-cyan-900 dark:hover:text-cyan-400 font-semibold">
-                            Mark all as read
-                        </button>
-                    </div>
-                    <?php endif; ?>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Live Sync</span>
                 </div>
             </div>
 
-            <div class="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2 hidden md:block"></div>
+            <div class="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden md:block"></div>
 
             <!-- Profile Dropdown -->
             <div class="relative" x-data="{ open: false }" @click.outside="open = false">

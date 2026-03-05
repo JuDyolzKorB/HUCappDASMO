@@ -8,25 +8,25 @@ $healthCenters = get_data('health_centers');
         <!-- Left Panel - Hero -->
         <div class="auth-branding hidden md:flex animated-gradient">
             <div class="logo-container">
-                <img src="assets/img/logo.png" alt="Uswag Logo" class="w-16 h-16">
+                <img src="assets/img/logo.png" alt="Pharmacy Logo" class="w-16 h-16">
             </div>
             <p class="text-sm font-medium text-white/80 mb-1">Iloilo City Government</p>
-            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Uswag Iloilo City Pharmacy</h1>
+            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Iloilo City Pharmacy</h1>
             <p class="text-sm text-white/90 mb-6 max-w-xs px-2 leading-relaxed font-normal">A comprehensive, end-to-end inventory management system designed for modern healthcare.</p>
             <div class="testimonial-box bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-lg">
                 <p class="text-xs italic leading-relaxed font-medium">"This system has revolutionized our inventory control, enhancing accountability and ensuring the efficient delivery of medical supplies for the people of Iloilo City."</p>
-                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Uswag Iloilo City Pharmacy</p>
+                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Iloilo City Pharmacy</p>
             </div>
         </div>
 
         <!-- Right Panel - Form -->
         <div class="auth-form-container w-full md:w-1/2 overflow-y-auto max-h-[96vh]">
             <div class="text-center mb-6">
-                <h2 class="text-3xl font-bold text-slate-800 font-display">Welcome Back</h2>
+                <h2 class="text-3xl font-bold text-slate-800 dark:text-white font-display">Welcome Back</h2>
                 <div class="flex items-center justify-center gap-2 mt-2">
-                    <p class="text-sm text-slate-500">
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
                         Don't have an account? 
-                        <button onclick="location.href='index.php?page=signup'" class="text-teal-600 hover:underline font-medium">
+                        <button onclick="location.href='index.php?page=signup'" class="text-teal-600 dark:text-teal-400 hover:underline font-medium transition-colors">
                             Sign Up
                         </button>
                     </p>
@@ -35,15 +35,15 @@ $healthCenters = get_data('health_centers');
 
             <form class="space-y-4" @submit.prevent="handleLogin">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1.5">Username</label>
-                    <input id="username" name="username" type="text" x-model="username" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="Enter your username">
+                    <label for="username" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Username</label>
+                    <input id="username" name="username" type="text" x-model="username" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="Enter your username">
                 </div>
 
                 <div>
-                    <label for="password" class="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                    <label for="password" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Password</label>
                     <div class="relative">
-                        <input id="password" name="password" :type="passwordVisible ? 'text' : 'password'" x-model="password" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5 pr-10" placeholder="••••••••">
-                        <button type="button" @click="passwordVisible = !passwordVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                        <input id="password" name="password" :type="passwordVisible ? 'text' : 'password'" x-model="password" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 pr-10 dark:text-white placeholder-slate-400/50" placeholder="••••••••">
+                        <button type="button" @click="passwordVisible = !passwordVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-teal-500 focus:outline-none transition-colors">
                              <svg x-show="!passwordVisible" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -56,7 +56,7 @@ $healthCenters = get_data('health_centers');
 
                 </div>
 
-                <div x-show="message" x-transition class="p-2 text-xs text-center border font-semibold rounded-lg" :class="messageType === 'error' ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-600 bg-green-50 border-green-200'" x-text="message"></div>
+                <div x-show="message" x-transition class="p-2 text-xs text-center border font-semibold rounded-lg" :class="messageType === 'error' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30' : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'" x-text="message"></div>
 
 
                 <div class="pt-1.5">
@@ -67,9 +67,9 @@ $healthCenters = get_data('health_centers');
                 </div>
             </form>
             
-            <div class="mt-6 text-center border-t border-slate-50 pt-4">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    &copy; 2026 USWAG ILOILO CITY
+            <div class="mt-6 text-center border-t border-slate-50 dark:border-slate-800/50 pt-4">
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
+                    &copy; 2026 ILOILO CITY
                 </p>
             </div>
         </div>

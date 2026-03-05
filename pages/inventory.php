@@ -35,12 +35,14 @@ foreach ($items as $item) {
     }
 
     $aggregatedInventory[] = [
-        'ItemID' => $itemId,
-        'ItemName' => $item['ItemName'],
-        'Category' => $item['ItemType'] ?? 'N/A',
-        'Unit' => $item['UnitOfMeasure'] ?? 'N/A',
+        'ItemID'      => $itemId,
+        'ItemName'    => $item['ItemName'],
+        'Brand'       => $item['Brand'] ?? '',
+        'DosageUnit'  => $item['DosageUnit'] ?? '',
+        'Category'    => $item['ItemType'] ?? 'N/A',
+        'Unit'        => $item['UnitOfMeasure'] ?? 'N/A',
         'TotalQuantity' => $totalQty,
-        'NextExpiry' => $nextExpiry
+        'NextExpiry'  => $nextExpiry
     ];
 }
 
@@ -96,6 +98,8 @@ $aggregatedInventory = array_values($aggregatedInventory);
                     <tr>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Item ID</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Item Name</th>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Brand</th>
+                        <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Dosage</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Category</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Total Quantity</th>
                         <th class="px-6 py-3 text-left text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Unit</th>
@@ -106,7 +110,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
                 <tbody class="bg-white dark:bg-slate-800">
                      <?php if (empty($aggregatedInventory)): ?>
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-slate-400 font-medium italic">No inventory items found.</td>
+                        <td colspan="9" class="px-6 py-12 text-center text-slate-400 font-medium italic">No inventory items found.</td>
                     </tr>
                     <?php else: ?>
                         <?php foreach ($aggregatedInventory as $index => $item): ?>
@@ -123,6 +127,8 @@ $aggregatedInventory = array_values($aggregatedInventory);
                         <tr class="inventory-row border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" data-category="<?php echo $filterCategory; ?>" onclick="toggleBatches('<?php echo $item['ItemID']; ?>')">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $item['ItemID']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo $item['ItemName']; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo !empty($item['Brand']) ? htmlspecialchars($item['Brand']) : '<span class="text-slate-300 dark:text-slate-600">—</span>'; ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo !empty($item['DosageUnit']) ? htmlspecialchars($item['DosageUnit']) : '<span class="text-slate-300 dark:text-slate-600">—</span>'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-primary dark:text-teal-400"><?php echo $item['Category']; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo number_format($item['TotalQuantity']); ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-primary dark:text-teal-400"><?php echo $item['Unit']; ?></td>
@@ -192,8 +198,8 @@ $aggregatedInventory = array_values($aggregatedInventory);
     </div>
 </div>
 
-<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999] flex items-center justify-center p-4" onclick="if(event.target === this) closeItemModal()">
+    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
             <h3 id="modalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Add New Item</h3>
         </div>
@@ -201,9 +207,21 @@ $aggregatedInventory = array_values($aggregatedInventory);
             <input type="hidden" name="action" id="formAction" value="add_item">
             <input type="hidden" name="itemId" id="formItemId">
             
+            <!-- Item Info -->
             <div class="space-y-2">
                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Item Name</label>
                 <input type="text" name="itemName" id="itemName" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Brand</label>
+                    <input type="text" name="brand" id="itemBrand" placeholder="e.g. Unilab" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Dosage Unit</label>
+                    <input type="text" name="dosageUnit" id="dosageUnit" placeholder="e.g. 500mg, 10mL" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                </div>
             </div>
             
             <div class="grid grid-cols-2 gap-4">
@@ -217,8 +235,41 @@ $aggregatedInventory = array_values($aggregatedInventory);
                     </select>
                 </div>
                 <div class="space-y-2">
-                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit</label>
+                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit of Measure</label>
                      <input type="text" name="unitOfMeasure" id="unitOfMeasure" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+                </div>
+            </div>
+
+            <!-- Initial Batch Section (only shown when adding a new item) -->
+            <div id="batchSection">
+                <div class="border-t border-slate-200 dark:border-slate-700 pt-4">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Initial Batch <span class="font-normal normal-case text-slate-400">(optional)</span></p>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Batch ID</label>
+                            <input type="number" name="batchId" id="batchId" min="1" placeholder="Auto-assigned if empty" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Lot Number</label>
+                            <input type="text" name="lotNumber" id="lotNumber" placeholder="e.g. LOT-2025-001" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mt-3">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Initial Quantity</label>
+                            <input type="number" name="batchQty" id="batchQty" min="0" placeholder="0" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit Cost (₱)</label>
+                            <input type="number" step="0.01" name="unitCost" id="unitCostInput" min="0" placeholder="0.00" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Expiry Date</label>
+                            <input type="date" name="expiryDate" id="expiryDate" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -229,6 +280,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
         </form>
     </div>
 </div>
+
 
 <style>
 .category-tab {
@@ -329,6 +381,7 @@ function openAddItemModal() {
     document.getElementById('formAction').value = 'add_item';
     document.getElementById('formItemId').value = '';
     document.getElementById('itemForm').reset();
+    document.getElementById('batchSection').style.display = ''; // show batch section
     document.getElementById('itemModal').classList.remove('hidden');
 }
 
@@ -337,8 +390,11 @@ function openEditItemModal(item) {
     document.getElementById('formAction').value = 'update_item';
     document.getElementById('formItemId').value = item.ItemID;
     document.getElementById('itemName').value = item.ItemName;
-    document.getElementById('itemType').value = item.Category; // Mapped from display logic
-    document.getElementById('unitOfMeasure').value = item.Unit; // Mapped from display logic
+    document.getElementById('itemBrand').value = item.Brand || '';
+    document.getElementById('dosageUnit').value = item.DosageUnit || '';
+    document.getElementById('itemType').value = item.Category;
+    document.getElementById('unitOfMeasure').value = item.Unit;
+    document.getElementById('batchSection').style.display = 'none'; // hide batch section for edits
     document.getElementById('itemModal').classList.remove('hidden');
 }
 

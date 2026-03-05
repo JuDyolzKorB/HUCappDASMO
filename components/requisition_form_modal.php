@@ -6,12 +6,8 @@ $healthCenters = get_data('health_centers');
 $items = get_data('items');
 ?>
 
-<div id="requisitionFormModal" class="fixed inset-0 hidden z-[100] flex justify-center items-center p-4 overflow-y-auto">
-    <!-- Backdrop with blur -->
-    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeRequisitionFormModal()"></div>
-    
-    <!-- Modal content -->
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl transform transition-all my-8 relative animate-in zoom-in-95 duration-200">
+<div id="requisitionFormModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4 overflow-y-auto" onclick="if(event.target === this) closeRequisitionFormModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl transform transition-all my-8 relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
         <form id="requisitionForm" onsubmit="handleRequisitionSubmit(event)">
             <input type="hidden" name="action" value="create_requisition">
             <div class="p-6">
@@ -21,25 +17,38 @@ $items = get_data('items');
                 </div>
                 
                 <div class="space-y-6">
-                    <div class="space-y-4">
-                    <div class="space-y-4">
-                        <?php if ($sessionHCId): 
-                            $selectedHC = null;
-                            foreach($healthCenters as $hc) {
-                                if($hc['HealthCenterID'] == $sessionHCId) {
-                                    $selectedHC = $hc;
-                                    break;
-                                }
+                    <?php 
+                    $user = getCurrentUser();
+                    $userRole = $user['Role'] ?? '';
+                    $userHcId = $user['HealthCenterID'] ?? null;
+                    $isHCUser = ($userRole === 'Health Center Staff' || $userRole === 'Health Center User');
+                    
+                    // Find HC Name if it's an HC User
+                    $assignedHCName = 'Your Health Center';
+                    if ($isHCUser && $userHcId) {
+                        foreach ($healthCenters as $hc) {
+                            if ($hc['HealthCenterID'] == $userHcId) {
+                                $assignedHCName = $hc['Name'];
+                                break;
                             }
-                            $hcName = $selectedHC['Name'] ?? 'Assigned Health Center';
-                        ?>
-                            <div class="flex flex-col">
-                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Health Center (Auto-selected)</label>
-                                <div class="px-4 py-2.5 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 font-semibold flex items-center">
-                                    <svg class="w-4 h-4 mr-2 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.9L10 1.55l7.834 3.35a1 1 0 01.583.912v9.523a1 1 0 01-1 1h-14.834a1 1 0 01-1-1v-9.523a1 1 0 01.583-.912zM10 3.193L4.167 5.71l5.833 2.5 5.833-2.5L10 3.193zM3 14.935v-7.85l7 3v7.85l-7-3zm9 3v-7.85l7-3v7.85l-7-3z" clip-rule="evenodd"></path></svg>
-                                    <?php echo htmlspecialchars($hcName); ?>
+                        }
+                    }
+                    ?>
+
+                    <div class="space-y-4">
+                        <?php if ($isHCUser && $userHcId): ?>
+                            <div class="flex items-center justify-between p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/30 rounded-xl">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mb-1">Requesting Location</label>
+                                    <span class="text-sm font-bold text-slate-800 dark:text-white"><?php echo htmlspecialchars($assignedHCName); ?></span>
                                 </div>
-                                <input type="hidden" name="healthCenterId" value="<?php echo $sessionHCId; ?>">
+                                <div class="bg-teal-500/10 p-2 rounded-lg">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-teal-600 dark:text-teal-400">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                    </svg>
+                                </div>
+                                <input type="hidden" name="healthCenterId" value="<?php echo $userHcId; ?>">
                             </div>
                         <?php else: ?>
                             <div class="flex justify-between items-center">
@@ -76,7 +85,6 @@ $items = get_data('items');
                                     class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white"></textarea>
                             </div>
                         <?php endif; ?>
-                    </div>
                     </div>
                     
                     <div>

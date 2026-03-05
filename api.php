@@ -77,28 +77,7 @@ try {
         $firstName = $_POST['firstName'] ?? '';
         $middleName = $_POST['middleName'] ?? '';
         $lastName = $_POST['lastName'] ?? '';
-        $role = $_POST['role'] ?? 'User';
-        $healthCenterId = $_POST['healthCenterId'] ?? null;
-        $isNewHC = ($_POST['isNewHC'] ?? '0') === '1';
-
-        // 1. Handle New Health Center if requested
-        if ($isNewHC && $role === 'Health Center Staff') {
-            $newHCName = $_POST['newHCName'] ?? '';
-            $newHCAddress = $_POST['newHCAddress'] ?? '';
-            if (!empty($newHCName)) {
-                $hcData = [
-                    'Name' => $newHCName,
-                    'Address' => $newHCAddress
-                ];
-                if (save_data('health_centers', [$hcData])) {
-                    global $db;
-                    $healthCenterId = $db->lastInsertId();
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'Failed to create new health center']);
-                    exit;
-                }
-            }
-        }
+        $role = $_POST['role'] ?? 'Health Center Staff';
 
         global $db;
         if ($db->find('users', 'Username', $username)) {
@@ -109,11 +88,11 @@ try {
         $newUser = [
             'Username' => $username,
             'Password' => password_hash($password, PASSWORD_DEFAULT),
-            'FName' => $firstName,
-            'MName' => $middleName,
-            'LName' => $lastName,
+            'FirstName' => $firstName,
+            'MiddleName' => $middleName,
+            'LastName' => $lastName,
             'Role' => $role,
-            'HealthCenterID' => $healthCenterId
+            'HealthCenterID' => $_POST['healthCenterId'] ?? null
         ];
         
         if (save_data('users', [$newUser])) {
@@ -177,11 +156,115 @@ try {
             echo json_encode(['success' => false, 'message' => 'Failed to save supplier']);
         }
 
+    } elseif ($action === 'process_issuance') {
+        $reqId = $_POST['requisitionId'] ?? '';
+        $allocationPlan = json_decode($_POST['allocationPlan'] ?? '[]', true);
+        
+        if (!$allocationPlan) {
+            echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
+            exit;
+        }
+        
+        global $db;
+        $db->beginTransaction();
+        
+        try {
+            // Fetch requisition to get HealthCenterID
+            $req = $db->fetchOne("SELECT HealthCenterID FROM Requisition WHERE RequisitionID = ?", [$reqId]);
+            $healthCenterId = $req['HealthCenterID'] ?? null;
+
+            if (!$healthCenterId) {
+                throw new Exception('Health center not found for this requisition');
+            }
+
+            $newIssuance = [
+                'RequisitionID' => $reqId,
+                'DateIssued' => date('Y-m-d H:i:s'),
+                'IssuedByUserID' => $_SESSION['user']['UserID'],
+                'IssuedItems' => []
+            ];
+            
+            foreach ($allocationPlan as $planItem) {
+                 if (empty($planItem['allocated'])) continue;
+
+                 foreach ($planItem['allocated'] as $allocatedBatch) {
+                     $batchId = $allocatedBatch['BatchID'] ?? '';
+                     $qtyToIssue = (int)($allocatedBatch['Quantity'] ?? 0);
+
+                     if (!$batchId || $qtyToIssue <= 0) continue;
+
+                     // Deduct from central inventory
+                     $batch = $db->fetchOne("SELECT * FROM CentralInventoryBatch WHERE BatchID = ?", [$batchId]);
+                     if (!$batch || $batch['QuantityOnHand'] < $qtyToIssue) {
+                         throw new Exception("Insufficient stock for Batch ID $batchId");
+                     }
+
+                     $db->execute(
+                        "UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand - ?, QuantityReleased = QuantityReleased + ? WHERE BatchID = ?",
+                        [$qtyToIssue, $qtyToIssue, $batchId]
+                     );
+
+                     $newIssuance['IssuedItems'][] = [
+                         'BatchID' => $batchId,
+                         'RequisitionItemID' => $planItem['reqItemId'] ?? null,
+                         'QuantityIssued' => $qtyToIssue
+                     ];
+
+                     // Transfer to HC Inventory
+                     $existingHCBatch = $db->fetchOne(
+                        "SELECT HCBatchID FROM HCInventoryBatch WHERE HealthCenterID = ? AND ItemID = ? AND BatchID = ?",
+                        [$healthCenterId, $batch['ItemID'], $batchId]
+                     );
+
+                     if ($existingHCBatch) {
+                         $db->execute(
+                            "UPDATE HCInventoryBatch SET QuantityOnHand = QuantityOnHand + ? WHERE HCBatchID = ?",
+                            [$qtyToIssue, $existingHCBatch['HCBatchID']]
+                         );
+                     } else {
+                         $db->execute(
+                            "INSERT INTO HCInventoryBatch (HealthCenterID, ItemID, BatchID, ExpiryDate, QuantityOnHand, UnitCost) 
+                             VALUES (?, ?, ?, ?, ?, ?)",
+                            [$healthCenterId, $batch['ItemID'], $batchId, $batch['ExpiryDate'], $qtyToIssue, $batch['UnitCost']]
+                         );
+                     }
+                 }
+            }
+            
+            // Save Issuance
+            $db->execute(
+                "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, 'Issued')",
+                [$reqId, $_SESSION['user']['UserID'], date('Y-m-d H:i:s')]
+            );
+            $issuanceId = $db->lastInsertId();
+
+            foreach ($newIssuance['IssuedItems'] as $item) {
+                $db->execute(
+                    "INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
+                    [$issuanceId, $item['BatchID'], $item['RequisitionItemID'], $item['QuantityIssued']]
+                );
+            }
+            
+            // Update Requisition Status
+            $db->execute("UPDATE Requisition SET StatusType = 'Completed' WHERE RequisitionID = ?", [$reqId]);
+            
+            $db->commit();
+            logTransaction('Issued Items', 'Requisition', $reqId);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
     } elseif ($action === 'receive_items') {
         $poid = $_POST['poid'] ?? $_POST['poId'] ?? ''; 
         $items = $_POST['items'] ?? []; 
         
-        $receivings = [];
+        if (!$poid) {
+            echo json_encode(['success' => false, 'message' => 'PO ID is required']);
+            exit;
+        }
+
         $newReceiving = [
             'POID' => $poid,
             'ReceivedDate' => date('Y-m-d H:i:s'),
@@ -203,23 +286,30 @@ try {
             }
         }
         
-        $receivings[] = $newReceiving;
-        
-        // Update PO Status
-        $procurementOrders = get_data('procurement_orders');
-        foreach ($procurementOrders as &$po) {
-            if ($po['POID'] == $poid) {
-                $po['StatusType'] = 'Completed'; 
-                break;
-            }
+        if (empty($newReceiving['ReceivedItems'])) {
+            echo json_encode(['success' => false, 'message' => 'No items were received']);
+            exit;
         }
-        
-        if (save_data('procurement_orders', $procurementOrders) && save_data('receivings', $receivings)) {
-             log_security_event($_SESSION['user']['UserID'], 'Receiving', 'Success', "Received items for PO $poid");
-             logTransaction('Received Items', 'Procurement Order', $poid);
-             echo json_encode(['success' => true]);
-        } else {
-             echo json_encode(['success' => false, 'message' => 'Failed to save updates']);
+
+        global $db;
+        $db->beginTransaction();
+        try {
+            // Update PO Status directly
+            $res = $db->execute("UPDATE ProcurementOrder SET StatusType = 'Completed' WHERE POID = ?", [$poid]);
+            if (!$res) throw new Exception("Failed to update procurement order status");
+
+            // Save Receiving record
+            if (!save_data('receivings', [$newReceiving])) {
+                throw new Exception("Failed to save received items");
+            }
+
+            $db->commit();
+            log_security_event($_SESSION['user']['UserID'], 'Receiving', 'Success', "Received items for PO $poid");
+            logTransaction('Received Items', 'Procurement Order', $poid);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
 
     } elseif ($action === 'create_requisition') {
@@ -346,7 +436,7 @@ try {
         }
         
         $supplierId = $_POST['supplierId'] ?? '';
-        $healthCenterId = $_POST['healthCenterId'] ?? ''; // Changed from WarehouseID
+        $healthCenterId = $_POST['healthCenterId'] ?? '';
         $items = $_POST['items'] ?? [];
         $quantities = $_POST['quantities'] ?? [];
         $expiryDates = $_POST['expiryDates'] ?? [];
@@ -370,7 +460,7 @@ try {
                 $poItems[] = [
                     'ItemID' => $itemId,
                     'QuantityOrdered' => (int)$quantities[$index],
-                    'UnitCost' => 0, // Should be filled if known
+                    'UnitCost' => 0,
                     'ExpiryDate' => !empty($expiryDates[$index]) ? $expiryDates[$index] : null
                 ];
             }
@@ -380,18 +470,49 @@ try {
             echo json_encode(['success' => false, 'message' => 'No valid items to order']);
             exit;
         }
+
+        // Handle document reference file upload
+        $refFilePath = null;
+        if (!empty($_FILES['refDocument']['name'])) {
+            $file = $_FILES['refDocument'];
+            $allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+            $allowedExts  = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            
+            if (!in_array($ext, $allowedExts)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid file type. Only PDF and images are allowed.']);
+                exit;
+            }
+            if ($file['size'] > 10 * 1024 * 1024) { // 10MB limit
+                echo json_encode(['success' => false, 'message' => 'File too large. Maximum 10MB.']);
+                exit;
+            }
+
+            $uploadDir = __DIR__ . '/uploads/po_docs/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+
+            $fileName = 'po_ref_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
+                $refFilePath = 'uploads/po_docs/' . $fileName;
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Failed to save uploaded file.']);
+                exit;
+            }
+        }
         
         $newPO = [
             'UserID' => $_SESSION['user']['UserID'],
             'SupplierID' => $supplierId,
-            'SupplierName' => $supplierName, // Kept for logic if db.php uses it
-            'SupplierAddress' => $supplierAddress, // Kept for logic if db.php uses it
+            'SupplierName' => $supplierName,
+            'SupplierAddress' => $supplierAddress,
             'HealthCenterID' => !empty($healthCenterId) ? $healthCenterId : null,
             'ContractNumber' => $_POST['contractNumber'] ?? null,
             'ContractStartDate' => $_POST['contractStartDate'] ?? null,
             'ContractEndDate' => $_POST['contractEndDate'] ?? null,
             'ContractAmount' => $_POST['contractAmount'] ?? null,
             'DocumentType' => $_POST['documentType'] ?? 'PO',
+            'RefFileType' => $_POST['refFileType'] ?? null,
+            'RefFilePath' => $refFilePath,
             'PODate' => date('Y-m-d\TH:i:s\Z'),
             'StatusType' => 'Pending',
             'ProcurementOrderItems' => $poItems
@@ -465,81 +586,82 @@ try {
             echo json_encode(['success' => false, 'message' => 'Database error']);
         }
 
-    } elseif ($action === 'process_issuance') {
-        try {
-            $requisitionId = $_POST['requisitionId'] ?? '';
-            $allocationPlanJson = $_POST['allocationPlan'] ?? '';
-            
-            if (!$requisitionId || !$allocationPlanJson) {
-                echo json_encode(['success' => false, 'message' => 'Missing required parameters']);
-                exit;
-            }
-            
-            $allocationPlan = json_decode($allocationPlanJson, true);
-            if (!$allocationPlan) {
-                echo json_encode(['success' => false, 'message' => 'Invalid allocation plan']);
-                exit;
-            }
-            
-            global $db;
+    } elseif ($action === 'update_patient_requisition_status') {
+        $reqId = $_POST['requisitionId'] ?? '';
+        $status = $_POST['status'] ?? '';
+        
+        if (!$reqId || !$status) {
+            echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
+            exit;
+        }
+        
+        $allowed = ['Approved', 'Rejected', 'Pending', 'Completed'];
+        if (!in_array($status, $allowed)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid status']);
+            exit;
+        }
+        
+        global $db;
+        
+        if ($status === 'Completed') {
             $db->beginTransaction();
+            try {
+                // Get health center and items
+                $patientReq = $db->fetchOne("SELECT HealthCenterID FROM HCPatientRequisition WHERE PatientReqID = ?", [$reqId]);
+                if (!$patientReq) throw new Exception("Requisition not found.");
+                
+                $hcId = $patientReq['HealthCenterID'];
+                $prItems = $db->fetchAll("SELECT ItemID, QuantityRequested FROM HCPatientRequisitionItem WHERE PatientReqID = ?", [$reqId]);
 
-            $req = $db->fetchOne("SELECT HealthCenterID FROM Requisition WHERE RequisitionID = ?", [$requisitionId]);
-            $hcId = $req['HealthCenterID'] ?? null;
-            $hcConn = $hcId ? Database::getHCConnection($hcId) : null;
+                foreach ($prItems as $item) {
+                    $qtyNeeded = $item['QuantityRequested'];
+                    $itemId = $item['ItemID'];
 
-            $db->execute(
-                "INSERT INTO Issuance (RequisitionID, UserID, IssueDate, StatusType) VALUES (?, ?, ?, ?)",
-                [$requisitionId, $_SESSION['user']['UserID'], date('Y-m-d H:i:s'), 'Issued']
-            );
-            $issuanceId = $db->lastInsertId();
-            
-            foreach ($allocationPlan as $itemPlan) {
-                $reqItemId = $itemPlan['reqItemId'];
-                $ri = $db->fetchOne("SELECT ItemID FROM RequisitionItem WHERE RequisitionItemID = ?", [$reqItemId]);
-                $itemId = $ri['ItemID'] ?? null;
+                    // Find available batches in HC inventory (FIFO)
+                    $batches = $db->fetchAll(
+                        "SELECT HCBatchID, QuantityOnHand FROM HCInventoryBatch 
+                         WHERE HealthCenterID = ? AND ItemID = ? AND QuantityOnHand > 0 
+                         ORDER BY DateReceivedAtHC ASC, HCBatchID ASC",
+                        [$hcId, $itemId]
+                    );
 
-                foreach ($itemPlan['allocated'] as $allocation) {
-                    $batchId = $allocation['BatchID'];
-                    $quantity = $allocation['Quantity'];
-                    
-                    $db->execute("INSERT INTO IssuanceItem (IssuanceID, BatchID, RequisitionItemID, QuantityIssued) VALUES (?, ?, ?, ?)",
-                        [$issuanceId, $batchId, $reqItemId, $quantity]);
-                    
-                    $db->execute("UPDATE CentralInventoryBatch SET QuantityOnHand = QuantityOnHand - ?, QuantityReleased = QuantityReleased + ? WHERE BatchID = ?",
-                        [$quantity, $quantity, $batchId]);
+                    $totalAvailable = array_sum(array_column($batches, 'QuantityOnHand'));
+                    if ($totalAvailable < $qtyNeeded) {
+                        throw new Exception("Insufficient stock for Item ID $itemId in health center inventory. (Need $qtyNeeded, have $totalAvailable)");
+                    }
 
-                    if ($hcConn && $itemId) {
-                        $stmt = $hcConn->prepare("SELECT InventoryID FROM HC_Inventory WHERE BatchID = ?");
-                        $stmt->execute([$batchId]);
-                        $exists = $stmt->fetch();
-
-                        if ($exists) {
-                            $stmt = $hcConn->prepare("UPDATE HC_Inventory SET QuantityOnHand = QuantityOnHand + ? WHERE InventoryID = ?");
-                            $stmt->execute([$quantity, $exists['InventoryID']]);
-                        } else {
-                            $mainBatch = $db->fetchOne("SELECT ExpiryDate FROM CentralInventoryBatch WHERE BatchID = ?", [$batchId]);
-                            $expiry = $mainBatch['ExpiryDate'] ?? null;
-                            $stmt = $hcConn->prepare("INSERT INTO HC_Inventory (ItemID, BatchID, QuantityOnHand, ExpiryDate) VALUES (?, ?, ?, ?)");
-                            $stmt->execute([$itemId, $batchId, $quantity, $expiry]);
-                        }
+                    foreach ($batches as $batch) {
+                        if ($qtyNeeded <= 0) break;
+                        $take = min($qtyNeeded, $batch['QuantityOnHand']);
+                        
+                        $db->execute(
+                            "UPDATE HCInventoryBatch SET QuantityOnHand = QuantityOnHand - ? WHERE HCBatchID = ?",
+                            [$take, $batch['HCBatchID']]
+                        );
+                        $qtyNeeded -= $take;
                     }
                 }
+                
+                $res = $db->execute("UPDATE HCPatientRequisition SET StatusType = ? WHERE PatientReqID = ?", [$status, $reqId]);
+                if (!$res) throw new Exception("Failed to update status.");
+                
+                $db->commit();
+                log_security_event($_SESSION['user']['UserID'], 'Patient Requisition', 'Success', "Completed patient requisition $reqId and deducted stock.");
+                echo json_encode(['success' => true]);
+            } catch (Exception $e) {
+                $db->rollback();
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
             }
-            
-            $db->execute("UPDATE Requisition SET StatusType = ? WHERE RequisitionID = ?", ['Completed', $requisitionId]);
-            $db->commit();
-            
-            log_security_event($_SESSION['user']['UserID'], 'Issuance', 'Success', "Processed issuance for requisition $requisitionId");
-            $db->broadcastUpdate('issuances_updated');
-            $db->broadcastUpdate('inventory_updated');
-            $db->broadcastUpdate('requisitions_updated');
-            echo json_encode(['success' => true, 'message' => 'Issuance processed successfully']);
-            
-        } catch (Exception $e) {
-            if (isset($db)) $db->rollback();
-            error_log("Process issuance error: " . $e->getMessage());
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            exit;
+        }
+
+        $res = $db->execute("UPDATE HCPatientRequisition SET StatusType = ? WHERE PatientReqID = ?", [$status, $reqId]);
+        
+        if ($res) {
+            log_security_event($_SESSION['user']['UserID'], 'Patient Requisition', 'Success', "Updated patient requisition $reqId status to $status");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
         }
 
     } elseif ($action === 'mark_notifications_read') {
@@ -1052,58 +1174,89 @@ try {
         }
 
     } elseif ($action === 'add_item') {
-        $itemName = $_POST['itemName'] ?? '';
-        $itemType = $_POST['itemType'] ?? '';
-        $unit = $_POST['unitOfMeasure'] ?? '';
-        
-        $items = get_data('items');
-        
-        // Generate ItemID (I0001)
-        $maxId = 0;
-        foreach ($items as $i) {
-            if (preg_match('/I(\d+)/', $i['ItemID'], $matches)) {
-                $num = (int)$matches[1];
-                if ($num > $maxId) $maxId = $num;
-            }
+        $itemName    = $_POST['itemName'] ?? '';
+        $itemType    = $_POST['itemType'] ?? '';
+        $unit        = $_POST['unitOfMeasure'] ?? '';
+
+        // Optional batch fields
+        $batchId    = isset($_POST['batchId']) && $_POST['batchId'] !== '' ? (int)$_POST['batchId'] : null;
+        $lotNumber  = $_POST['lotNumber'] ?? '';
+        $batchQty   = isset($_POST['batchQty']) && $_POST['batchQty'] !== '' ? (int)$_POST['batchQty'] : null;
+        $unitCost   = isset($_POST['unitCost']) && $_POST['unitCost'] !== '' ? (float)$_POST['unitCost'] : null;
+        $expiryDate = $_POST['expiryDate'] ?? '';
+        $warehouseId = $_POST['warehouseId'] ?? 1;
+
+        if (empty($itemName)) {
+            echo json_encode(['success' => false, 'message' => 'Item name is required']);
+            exit;
         }
-        $newItemId = 'I' . str_pad($maxId + 1, 4, '0', STR_PAD_LEFT);
-        
-        $newItem = [
-            'ItemID' => $newItemId,
-            'ItemName' => $itemName,
-            'ItemType' => $itemType,
-            'UnitOfMeasure' => $unit
-        ];
-        
-        $items[] = $newItem;
-        
-        if (save_data('items', $items)) {
-             log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Added item $newItemId");
-             echo json_encode(['success' => true]);
+
+        global $db;
+        $brand      = $_POST['brand'] ?? '';
+        $dosageUnit = $_POST['dosageUnit'] ?? '';
+        $res = $db->execute(
+            "INSERT INTO Item (ItemName, Brand, ItemType, UnitOfMeasure, DosageUnit) VALUES (?, ?, ?, ?, ?)",
+            [$itemName, $brand ?: null, $itemType, $unit, $dosageUnit ?: null]
+        );
+
+        if ($res) {
+            $newItemIdAsInt = $db->lastInsertId();
+            $newItemId = 'I' . str_pad($newItemIdAsInt, 4, '0', STR_PAD_LEFT);
+            log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Added item $newItemId ($itemName)");
+
+            // If a quantity was provided, create the initial batch
+            if ($batchQty !== null && $batchQty > 0) {
+                $expiryParam = !empty($expiryDate) ? $expiryDate : null;
+                $lotParam    = !empty($lotNumber) ? $lotNumber : null;
+
+                if ($batchId !== null) {
+                    // User specified an explicit BatchID
+                    $db->execute(
+                        "INSERT INTO CentralInventoryBatch (BatchID, ItemID, LotNumber, QuantityOnHand, UnitCost, ExpiryDate, WarehouseID, DateReceived)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE())",
+                        [$batchId, $newItemIdAsInt, $lotParam, $batchQty, $unitCost, $expiryParam, $warehouseId]
+                    );
+                } else {
+                    // Let DB auto-assign BatchID
+                    $db->execute(
+                        "INSERT INTO CentralInventoryBatch (ItemID, LotNumber, QuantityOnHand, UnitCost, ExpiryDate, WarehouseID, DateReceived)
+                         VALUES (?, ?, ?, ?, ?, ?, CURDATE())",
+                        [$newItemIdAsInt, $lotParam, $batchQty, $unitCost, $expiryParam, $warehouseId]
+                    );
+                }
+            }
+
+            echo json_encode(['success' => true]);
         } else {
-             echo json_encode(['success' => false, 'message' => 'Failed to save item']);
+            echo json_encode(['success' => false, 'message' => 'Failed to save item']);
         }
         
     } elseif ($action === 'update_item') {
-        $itemId = $_POST['itemId'] ?? '';
+        $itemId = $_POST['itemId'] ?? ''; // This might be 'I0001' or '1'
         $itemName = $_POST['itemName'] ?? '';
         $itemType = $_POST['itemType'] ?? '';
         $unit = $_POST['unitOfMeasure'] ?? '';
         
-        $items = get_data('items');
-        $updated = false;
-        
-        foreach ($items as &$i) {
-            if ($i['ItemID'] == $itemId) {
-                $i['ItemName'] = $itemName;
-                $i['ItemType'] = $itemType;
-                $i['UnitOfMeasure'] = $unit;
-                $updated = true;
-                break;
-            }
+        if (!$itemId || empty($itemName)) {
+            echo json_encode(['success' => false, 'message' => 'Item ID and name are required']);
+            exit;
+        }
+
+        // Resolve ItemID to INT
+        $resolvedItemId = $itemId;
+        if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
+            $resolvedItemId = (int)$matches[1];
         }
         
-        if ($updated && save_data('items', $items)) {
+        global $db;
+        $brand      = $_POST['brand'] ?? '';
+        $dosageUnit = $_POST['dosageUnit'] ?? '';
+        $res = $db->execute(
+            "UPDATE Item SET ItemName = ?, Brand = ?, ItemType = ?, UnitOfMeasure = ?, DosageUnit = ? WHERE ItemID = ?",
+            [$itemName, $brand ?: null, $itemType, $unit, $dosageUnit ?: null, $resolvedItemId]
+        );
+        
+        if ($res) {
              log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Updated item $itemId");
              echo json_encode(['success' => true]);
         } else {
@@ -1111,489 +1264,377 @@ try {
         }
 
     } elseif ($action === 'delete_item') {
+        if ($_SESSION['user']['Role'] !== 'Administrator') {
+            echo json_encode(['success' => false, 'message' => 'Only administrators can delete items.']);
+            exit;
+        }
         $itemId = $_POST['itemId'] ?? '';
         
-        $items = get_data('items');
-        $newItems = [];
-        $found = false;
-        
-        foreach ($items as $i) {
-            if ($i['ItemID'] == $itemId) {
-                $found = true;
-                continue; // Skip logic to delete
-            }
-            $newItems[] = $i;
-        }
-        
-        if ($found) {
-            if (save_data('items', $newItems)) {
-                 log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Deleted item $itemId");
-                 echo json_encode(['success' => true]);
-            } else {
-                 echo json_encode(['success' => false, 'message' => 'Failed to delete item']);
-            }
-        } else {
-             echo json_encode(['success' => false, 'message' => 'Item not found']);
-        }
-
-    } elseif ($action === 'bulk_import_items') {
-        $newItemsData = $_POST['items'] ?? [];
-        if (!is_array($newItemsData) || empty($newItemsData)) {
-            echo json_encode(['success' => false, 'message' => 'No items provided for import']);
+        if (!$itemId) {
+            echo json_encode(['success' => false, 'message' => 'Item ID is required']);
             exit;
         }
 
-        $existingItems = get_data('items');
+        // Resolve ItemID to INT
+        $resolvedItemId = $itemId;
+        if (is_string($resolvedItemId) && preg_match('/^I(\d+)$/', $resolvedItemId, $matches)) {
+            $resolvedItemId = (int)$matches[1];
+        }
+
+        global $db;
+        // Check if item has any batches/history before deleting (integrity check)
+        $hasHistory = $db->fetchOne("SELECT BatchID FROM CentralInventoryBatch WHERE ItemID = ? LIMIT 1", [$resolvedItemId]);
+        if ($hasHistory) {
+            echo json_encode(['success' => false, 'message' => 'Cannot delete item with inventory history. Consider deactivating it instead.']);
+            exit;
+        }
+
+        $res = $db->execute("DELETE FROM Item WHERE ItemID = ?", [$resolvedItemId]);
         
-        // Find current max numeric ID
-        $maxId = 0;
-        foreach ($existingItems as $i) {
-            if (preg_match('/I(\d+)/', $i['ItemID'], $matches)) {
-                $num = (int)$matches[1];
-                if ($num > $maxId) $maxId = $num;
-            }
-        }
-
-        $addedCount = 0;
-        foreach ($newItemsData as $item) {
-            $maxId++;
-            $newItemId = 'I' . str_pad($maxId, 4, '0', STR_PAD_LEFT);
-            
-            $existingItems[] = [
-                'ItemID' => $newItemId,
-                'ItemName' => $item['ItemName'] ?? 'Unnamed Medicine',
-                'ItemType' => $item['ItemType'] ?? 'Medicine',
-                'UnitOfMeasure' => $item['UnitOfMeasure'] ?? 'Unit'
-            ];
-            $addedCount++;
-        }
-
-        if (save_data('items', $existingItems)) {
-            log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Bulk imported $addedCount items via DPRI");
-            echo json_encode(['success' => true, 'count' => $addedCount]);
+        if ($res) {
+             log_security_event($_SESSION['user']['UserID'], 'Item', 'Success', "Deleted item $itemId");
+             echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Failed to save imported items']);
+             echo json_encode(['success' => false, 'message' => 'Failed to delete item']);
         }
 
-    } elseif ($action === 'add_hc_patient') {
-        // Deprecated - patient registration is now handled within requisition
-        echo json_encode(['success' => false, 'message' => 'Action deprecated. Use patient requisition modal instead.']);
+    } elseif ($action === 'add_patient') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $newPatient = [
+            'HealthCenterID' => $_POST['healthCenterId'] ?? $_SESSION['user']['HealthCenterID'] ?? null,
+            'FName' => $_POST['firstName'] ?? '',
+            'MName' => $_POST['middleName'] ?? '',
+            'LName' => $_POST['lastName'] ?? '',
+            'Age' => $_POST['age'] ?? null,
+            'Gender' => $_POST['gender'] ?? 'Other',
+            'Address' => $_POST['address'] ?? '',
+            'ContactNumber' => $_POST['contactNumber'] ?? '',
+            'IDProof' => $_POST['idProof'] ?? ''
+        ];
+
+        if (empty($newPatient['FName']) || empty($newPatient['LName'])) {
+            echo json_encode(['success' => false, 'message' => 'Patient name is required']);
+            exit;
+        }
+
+        if (save_data('patients', [$newPatient])) {
+            log_security_event($_SESSION['user']['UserID'], 'Patient', 'Success', "Added patient {$newPatient['FName']} {$newPatient['LName']}");
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save patient']);
+        }
+
+    } elseif ($action === 'create_patient_requisition') {
+        if (!isset($_SESSION['user'])) {
+            echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+            exit;
+        }
+
+        $patientId = $_POST['patientId'] ?? '';
+        $patientName = $_POST['patientName'] ?? '';
+        $items = json_decode($_POST['items'] ?? '[]', true);
+        $diagnosis = $_POST['diagnosis'] ?? '';
+        $notes = $_POST['notes'] ?? '';
+        $healthCenterId = $_SESSION['user']['HealthCenterID'] ?? null;
+
+        if (!$healthCenterId && !in_array($_SESSION['user']['Role'], ['Administrator', 'Head Pharmacist'])) {
+            echo json_encode(['success' => false, 'message' => 'Your account is not assigned to a health center.']);
+            exit;
+        }
+
+        if (!$patientId && !$patientName) {
+            echo json_encode(['success' => false, 'message' => 'Patient selection or name is required']);
+            exit;
+        }
+
+        if (empty($items)) {
+            echo json_encode(['success' => false, 'message' => 'At least one item is required']);
+            exit;
+        }
+
+        global $db;
+        $db->beginTransaction();
+        try {
+            // If no patientId, create a new patient from the manual name
+            if (!$patientId && $patientName) {
+                $nameParts = explode(' ', trim($patientName), 2);
+                $fName = $nameParts[0];
+                $lName = $nameParts[1] ?? 'Doe';
+
+                $newPatient = [
+                    'HealthCenterID' => $healthCenterId,
+                    'FName' => $fName,
+                    'LName' => $lName,
+                    'ContactNumber' => $_POST['contactInfo'] ?? '',
+                    'IDProof' => $_POST['idProof'] ?? ''
+                ];
+
+                if (!save_data('patients', [$newPatient])) {
+                    throw new Exception('Failed to create new patient record');
+                }
+                $patientId = $db->lastInsertId();
+            }
+
+            $newPR = [
+                'PatientID' => $patientId,
+                'UserID' => $_SESSION['user']['UserID'],
+                'HealthCenterID' => $healthCenterId,
+                'RequestDate' => date('Y-m-d H:i:s'),
+                'StatusType' => 'Pending',
+                'Diagnosis' => $diagnosis,
+                'Notes' => $notes,
+                'ContactInfo' => $_POST['contactInfo'] ?? '',
+                'IDProof' => $_POST['idProof'] ?? '',
+                'Items' => $items
+            ];
+
+            if (!save_data('patient_requisitions', [$newPR])) {
+                throw new Exception('Failed to save patient requisition');
+            }
+
+            $newPrId = $db->lastInsertId();
+            $db->commit();
+            logTransaction('Created Patient Requisition', 'HCPatientRequisition', $newPrId);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+    } elseif ($action === 'get_history') {
+        $type = $_POST['type'] ?? 'item_additions';
+        $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 100;
+        
+        global $db;
+        $data = [];
+
+        try {
+            if ($type === 'item_additions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        r.ReceivedDate as Date,
+                        i.ItemName,
+                        i.ItemID,
+                        ri.QuantityReceived as Quantity,
+                        cib.BatchID,
+                        cib.ExpiryDate,
+                        CONCAT(u.FName, ' ', u.LName) as User,
+                        'Addition' as Reference
+                    FROM Receiving r
+                    JOIN ReceivingItem ri ON r.ReceivingID = ri.ReceivingID
+                    JOIN CentralInventoryBatch cib ON ri.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON r.UserID = u.UserID
+                    ORDER BY r.ReceivedDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'hc_requisitions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        r.RequestDate as Date,
+                        r.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ri.QuantityRequested as Quantity,
+                        r.StatusType as Status,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM Requisition r
+                    JOIN RequisitionItem ri ON r.RequisitionID = ri.RequisitionID
+                    JOIN Item i ON ri.ItemID = i.ItemID
+                    JOIN HealthCenters hc ON r.HealthCenterID = hc.HealthCenterID
+                    LEFT JOIN Users u ON r.UserID = u.UserID
+                    ORDER BY r.RequestDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'warehouse_issuances') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        iss.IssueDate as Date,
+                        req.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ii.QuantityIssued as Quantity,
+                        ii.BatchID,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM Issuance iss
+                    JOIN IssuanceItem ii ON iss.IssuanceID = ii.IssuanceID
+                    JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    JOIN HealthCenters hc ON req.HealthCenterID = hc.HealthCenterID
+                    JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON iss.UserID = u.UserID
+                    ORDER BY iss.IssueDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'adjustments') {
+                $manualAdj = $db->fetchAll("
+                    SELECT 
+                        ia.AdjustmentDate as Date,
+                        'Manual Adjustment' as Reference,
+                        i.ItemName,
+                        ia.AdjustmentQuantity as Quantity,
+                        ia.Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM InventoryAdjustment ia
+                    JOIN CentralInventoryBatch cib ON ia.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON ia.UserID = u.UserID
+                ");
+
+                $reqAdj = $db->fetchAll("
+                    SELECT 
+                        ra.AdjustmentDate as Date,
+                        CONCAT('Requisition ', ra.AdjustmentType) as Reference,
+                        i.ItemName,
+                        rad.QuantityAdjusted as Quantity,
+                        ra.Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM RequisitionAdjustment ra
+                    JOIN RequisitionAdjustmentDetail rad ON ra.RequisitionAdjustmentID = rad.RequisitionAdjustmentID
+                    JOIN CentralInventoryBatch cib ON rad.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON ra.UserID = u.UserID
+                ");
+
+                $disposals = $db->fetchAll("
+                    SELECT 
+                        noi.ReportDate as Date,
+                        CONCAT('Notice: ', noi.IssueType) as Reference,
+                        i.ItemName,
+                        -noi.QuantityAffected as Quantity,
+                        noi.Remarks as Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM NoticeOfIssue noi
+                    JOIN CentralInventoryBatch cib ON noi.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON noi.UserID = u.UserID
+                ");
+
+                $data = array_merge($manualAdj, $reqAdj, $disposals);
+                usort($data, function($a, $b) {
+                    return strtotime($b['Date']) - strtotime($a['Date']);
+                });
+                $data = array_slice($data, 0, $limit);
+
+            } elseif ($type === 'patient_list') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        pr.RequestDate as Date,
+                        pr.RequisitionNumber as Reference,
+                        CONCAT(p.FName, ' ', p.LName) as Patient,
+                        i.ItemName,
+                        pri.QuantityRequested as Quantity,
+                        pr.StatusType as Status,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM HCPatientRequisition pr
+                    JOIN HCPatientRequisitionItem pri ON pr.PatientReqID = pri.PatientReqID
+                    JOIN HCPatient p ON pr.PatientID = p.PatientID
+                    JOIN Item i ON pri.ItemID = i.ItemID
+                    LEFT JOIN Users u ON pr.UserID = u.UserID
+                    ORDER BY pr.RequestDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'hc_inventory_additions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        iss.IssueDate as Date,
+                        req.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ii.QuantityIssued as Quantity,
+                        ii.BatchID,
+                        CONCAT(u.FName, ' ', u.LName) as User,
+                        'HC Arrival' as Type
+                    FROM Issuance iss
+                    JOIN IssuanceItem ii ON iss.IssuanceID = ii.IssuanceID
+                    JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    JOIN HealthCenters hc ON req.HealthCenterID = hc.HealthCenterID
+                    JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON iss.UserID = u.UserID
+                    WHERE req.StatusType = 'Completed'
+                    ORDER BY iss.IssueDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'summary') {
+                // Additive counting: Total items ever received by CENTRAL
+                $data = $db->fetchAll("
+                    SELECT 
+                        i.ItemName,
+                        i.ItemID,
+                        IFNULL(SUM(ri.QuantityReceived), 0) as TotalAdded,
+                        COUNT(DISTINCT r.ReceivingID) as TotalTransactions,
+                        MAX(r.ReceivedDate) as LastReceived
+                    FROM Item i
+                    LEFT JOIN CentralInventoryBatch cib ON i.ItemID = cib.ItemID
+                    LEFT JOIN ReceivingItem ri ON cib.BatchID = ri.BatchID
+                    LEFT JOIN Receiving r ON ri.ReceivingID = r.ReceivingID
+                    GROUP BY i.ItemID
+                    HAVING TotalAdded > 0
+                    ORDER BY TotalAdded DESC
+                ");
+            } elseif ($type === 'hc_summary') {
+                // Additive counting: Total items ever received by ALL HEALTH CENTERS
+                $data = $db->fetchAll("
+                    SELECT 
+                        i.ItemName,
+                        i.ItemID,
+                        IFNULL(SUM(ii.QuantityIssued), 0) as TotalAdded,
+                        COUNT(DISTINCT iss.IssuanceID) as TotalTransactions,
+                        MAX(iss.IssueDate) as LastReceived
+                    FROM Item i
+                    LEFT JOIN CentralInventoryBatch cib ON i.ItemID = cib.ItemID
+                    LEFT JOIN IssuanceItem ii ON cib.BatchID = ii.BatchID
+                    LEFT JOIN Issuance iss ON ii.IssuanceID = iss.IssuanceID
+                    LEFT JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    WHERE req.StatusType = 'Completed'
+                    GROUP BY i.ItemID
+                    HAVING TotalAdded > 0
+                    ORDER BY TotalAdded DESC
+                ");
+            }
+
+            echo json_encode(['success' => true, 'data' => $data]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+    } elseif ($action === 'get_dashboard_stats') {
+        $userRole = $_SESSION['user']['Role'];
+        $requisitions = get_data('requisitions');
+        $procurementOrders = get_data('procurement_orders');
+        $inventory = get_data('inventory');
+        $patientRequisitions = get_data('patient_requisitions');
+
+        $stats = [
+            'pending_reqs' => 0,
+            'low_stock' => 0,
+            'pending_pos' => 0,
+            'pending_patient_reqs' => 0
+        ];
+
+        foreach ($requisitions as $r) {
+            if ($r['StatusType'] === 'Pending') $stats['pending_reqs']++;
+        }
+
+        foreach ($procurementOrders as $po) {
+            if ($po['StatusType'] === 'Pending') $stats['pending_pos']++;
+        }
+
+        foreach ($inventory as $batch) {
+            if ($batch['QuantityOnHand'] < 500) $stats['low_stock']++;
+        }
+
+        foreach ($patientRequisitions as $pr) {
+            if ($pr['StatusType'] === 'Pending') $stats['pending_patient_reqs']++;
+        }
+
+        echo json_encode(['success' => true, 'stats' => $stats]);
         exit;
-
-    } elseif ($action === 'create_hc_patient_requisition') {
-        try {
-            if (!isset($_SESSION['user']['HealthCenterID'])) {
-                echo json_encode(['success' => false, 'message' => 'No health center assigned']);
-                exit;
-            }
-            $hcConn = Database::getHCConnection($_SESSION['user']['HealthCenterID']);
-            $hcConn->beginTransaction();
-
-            // Handle ID Proof Upload
-            $idProofPath = null;
-            if (isset($_FILES['idProof']) && $_FILES['idProof']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/uploads/ids/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-                
-                $fileExtension = strtolower(pathinfo($_FILES['idProof']['name'], PATHINFO_EXTENSION));
-                $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
-                
-                if (in_array($fileExtension, $allowedExtensions)) {
-                    $fileName = 'id_' . uniqid() . '.' . $fileExtension;
-                    if (move_uploaded_file($_FILES['idProof']['tmp_name'], $uploadDir . $fileName)) {
-                        $idProofPath = 'uploads/ids/' . $fileName;
-                    }
-                }
-            }
-
-            $patientName = $_POST['patientName'] ?? '';
-            $patientAddress = $_POST['patientAddress'] ?? '';
-            $contactNumber = $_POST['contactNumber'] ?? '';
-            $otherInfo = $_POST['otherInfo'] ?? '';
-            $staffUsername = $_SESSION['user']['Username'];
-            
-            // Get local StaffID if possible
-            $stmt = $hcConn->prepare("SELECT StaffID FROM hc_staff WHERE Username = ?");
-            $stmt->execute([$staffUsername]);
-            $staff = $stmt->fetch();
-            $staffId = $staff['StaffID'] ?? null;
-
-            $stmt = $hcConn->prepare("INSERT INTO PatientRequisition (PatientName, PatientAddress, ContactNumber, IDProofPath, OtherInfo, StaffID, RequestDate) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$patientName, $patientAddress, $contactNumber, $idProofPath, $otherInfo, $staffId, date('Y-m-d H:i:s')]);
-            $requisitionId = $hcConn->lastInsertId();
-
-            $items = $_POST['items'] ?? [];
-            foreach ($items as $item) {
-                $itemId = $item['itemId'];
-                $qty = $item['quantity'];
-                
-                $stmt = $hcConn->prepare("INSERT INTO PatientRequisitionItem (PatientRequisitionID, ItemID, QuantityRequested) VALUES (?, ?, ?)");
-                $stmt->execute([$requisitionId, $itemId, $qty]);
-            }
-
-            $hcConn->commit();
-            echo json_encode(['success' => true, 'message' => 'Patient requisition submitted successfully']);
-        } catch (Exception $e) {
-            if (isset($hcConn)) $hcConn->rollBack();
-            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
-        }
-
-    } elseif ($action === 'sync_hc_inventory') {
-        try {
-            if (!isset($_SESSION['user']['HealthCenterID'])) {
-                echo json_encode(['success' => false, 'message' => 'No health center assigned to your account']);
-                exit;
-            }
-
-            $hcId = $_SESSION['user']['HealthCenterID'];
-            $hcConn = Database::getHCConnection($hcId);
-            if (!$hcConn) {
-                echo json_encode(['success' => false, 'message' => 'Could not connect to health center database (Check DatabaseName setting in HealthCenters table)']);
-                exit;
-            }
-
-            global $db;
-            
-            // Get all successful issuances for this health center
-            $sql = "SELECT ii.BatchID, ii.QuantityIssued, b.ItemID, b.ExpiryDate
-                    FROM issuanceitem ii
-                    JOIN issuance i ON ii.IssuanceID = i.IssuanceID
-                    JOIN requisition r ON i.RequisitionID = r.RequisitionID
-                    JOIN centralinventorybatch b ON ii.BatchID = b.BatchID
-                    WHERE r.HealthCenterID = ? AND i.StatusType = 'Issued'";
-            
-            $issuances = $db->fetchAll($sql, [$hcId]);
-            
-            $syncedCount = 0;
-            foreach ($issuances as $iss) {
-                // Check if already in HC inventory
-                $stmt = $hcConn->prepare("SELECT InventoryID FROM hc_inventory WHERE BatchID = ?");
-                $stmt->execute([$iss['BatchID']]);
-                if (!$stmt->fetch()) {
-                    $stmt = $hcConn->prepare("INSERT INTO hc_inventory (ItemID, BatchID, QuantityOnHand, ExpiryDate) VALUES (?, ?, ?, ?)");
-                    if ($stmt->execute([$iss['ItemID'], $iss['BatchID'], $iss['QuantityIssued'], $iss['ExpiryDate']])) {
-                        $syncedCount++;
-                    }
-                }
-            }
-
-            echo json_encode(['success' => true, 'message' => "Successfully synced $syncedCount new items to local inventory."]);
-        } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Sync error: ' . $e->getMessage()]);
-        }
-    } elseif ($action === 'get_hc_patient_requisition_items') {
-        try {
-            if (!isset($_SESSION['user']['HealthCenterID'])) {
-                echo json_encode(['success' => false, 'message' => 'No health center assigned']);
-                exit;
-            }
-
-            $hcId = $_SESSION['user']['HealthCenterID'];
-            $reqId = $_POST['requisition_id'] ?? 0;
-
-            if (!$reqId) {
-                echo json_encode(['success' => false, 'message' => 'Invalid Request ID']);
-                exit;
-            }
-
-            $hcConn = Database::getHCConnection($hcId);
-            if (!$hcConn) {
-                echo json_encode(['success' => false, 'message' => 'Database connection failed']);
-                exit;
-            }
-
-            $mainDb = DB_NAME;
-            
-            // Fetch Requisition Details
-            $stmt = $hcConn->prepare("
-                SELECT pr.*, 
-                       CONCAT(s.FirstName, ' ', s.LastName) as StaffName,
-                       CONCAT(u.FName, ' ', u.LName) as ApproverName
-                FROM PatientRequisition pr
-                LEFT JOIN HC_Staff s ON pr.StaffID = s.StaffID
-                LEFT JOIN $mainDb.Users u ON pr.ApprovedBy = u.UserID
-                WHERE pr.PatientRequisitionID = ?
-            ");
-            $stmt->execute([$reqId]);
-            $details = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$details) {
-                echo json_encode(['success' => false, 'message' => 'Requisition not found']);
-                exit;
-            }
-
-            // Fetch Items
-            $stmt = $hcConn->prepare("
-                SELECT pri.*, i.ItemName, i.UnitOfMeasure as Unit 
-                FROM PatientRequisitionItem pri
-                JOIN $mainDb.Item i ON pri.ItemID = i.ItemID
-                WHERE pri.PatientRequisitionID = ?
-            ");
-            $stmt->execute([$reqId]);
-            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            echo json_encode(['success' => true, 'details' => $details, 'items' => $items]);
-        } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
-        }
-
-    } elseif ($action === 'create_hc_patient_requisition') {
-        try {
-            if (!isset($_SESSION['user'])) {
-                echo json_encode(['success' => false, 'message' => 'Not authenticated']);
-                exit;
-            }
-
-            $user = $_SESSION['user'];
-            $hcId = $user['HealthCenterID'] ?? null;
-            if (!$hcId) {
-                echo json_encode(['success' => false, 'message' => 'No health center assigned to your account']);
-                exit;
-            }
-
-            $hcConn = Database::getHCConnection($hcId);
-            if (!$hcConn) {
-                echo json_encode(['success' => false, 'message' => 'Could not connect to health center database']);
-                exit;
-            }
-
-            $patientName    = trim($_POST['patientName'] ?? '');
-            $contactNumber  = trim($_POST['contactNumber'] ?? '');
-            $patientAddress = trim($_POST['patientAddress'] ?? '');
-            $otherInfo      = trim($_POST['otherInfo'] ?? '');
-            $items          = $_POST['items'] ?? [];
-
-            if (empty($patientName)) {
-                echo json_encode(['success' => false, 'message' => 'Patient name is required']);
-                exit;
-            }
-
-            if (empty($items) || !is_array($items)) {
-                echo json_encode(['success' => false, 'message' => 'At least one item is required']);
-                exit;
-            }
-
-            // 1. Resolve staff ID for the logged-in user
-            $firstName = $user['FirstName'] ?? $user['FName'] ?? 'Staff';
-            $lastName  = $user['LastName']  ?? $user['LName']  ?? '';
-            $username  = $user['Username'] ?? strtolower($firstName);
-
-            $stmt = $hcConn->prepare("SELECT StaffID FROM HC_Staff WHERE Username = ? LIMIT 1");
-            $stmt->execute([$username]);
-            $staffRow = $stmt->fetch();
-
-            if ($staffRow) {
-                $staffId = $staffRow['StaffID'];
-            } else {
-                $stmt = $hcConn->prepare("INSERT INTO HC_Staff (FirstName, LastName, Role, Username, Password) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$firstName, $lastName, 'Staff', $username, 'managed_by_central']);
-                $staffId = $hcConn->lastInsertId();
-            }
-
-            // 2. Handle ID proof file upload
-            $idProofPath = null;
-            if (isset($_FILES['idProof']) && $_FILES['idProof']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/uploads/id_proofs/';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0775, true);
-                }
-                $ext        = pathinfo($_FILES['idProof']['name'], PATHINFO_EXTENSION);
-                $fileName   = 'id_' . time() . '_' . uniqid() . '.' . $ext;
-                $targetPath = $uploadDir . $fileName;
-                if (move_uploaded_file($_FILES['idProof']['tmp_name'], $targetPath)) {
-                    $idProofPath = 'uploads/id_proofs/' . $fileName;
-                }
-            }
-
-            // 3. Insert into PatientRequisition
-            $stmt = $hcConn->prepare("
-                INSERT INTO PatientRequisition 
-                    (PatientName, PatientAddress, ContactNumber, IDProofPath, OtherInfo, StaffID, RequestDate, StatusType)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')
-            ");
-            $stmt->execute([$patientName, $patientAddress, $contactNumber, $idProofPath, $otherInfo, $staffId, date('Y-m-d H:i:s')]);
-            $patientReqId = $hcConn->lastInsertId();
-
-            // 4. Insert items into PatientRequisitionItem
-            $validItems = 0;
-            foreach ($items as $item) {
-                $itemId  = (int)($item['itemId'] ?? 0);
-                $qty     = (int)($item['quantity'] ?? 0);
-                if ($itemId > 0 && $qty > 0) {
-                    $stmt = $hcConn->prepare("
-                        INSERT INTO PatientRequisitionItem (PatientRequisitionID, ItemID, QuantityRequested)
-                        VALUES (?, ?, ?)
-                    ");
-                    $stmt->execute([$patientReqId, $itemId, $qty]);
-                    $validItems++;
-                }
-            }
-
-            if ($validItems === 0) {
-                // Rollback the header insert if no valid items
-                $hcConn->exec("DELETE FROM PatientRequisition WHERE PatientRequisitionID = $patientReqId");
-                echo json_encode(['success' => false, 'message' => 'No valid items were provided']);
-                exit;
-            }
-
-        log_security_event($user['UserID'], 'Patient Requisition', 'Success', "Created patient requisition for $patientName with $validItems item(s)");
-            echo json_encode(['success' => true, 'message' => 'Patient requisition submitted successfully!']);
-
-        } catch (Exception $e) {
-            error_log("create_hc_patient_requisition error: " . $e->getMessage());
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
-        }
-
-    } elseif ($action === 'get_all_patient_requisitions') {
-        // Head Pharmacist: fetch all patient requisitions across all HC DBs
-        try {
-            $db = Database::getInstance();
-            $hcs = $db->fetchAll("SELECT HealthCenterID, Name, DatabaseName FROM HealthCenters WHERE DatabaseName IS NOT NULL AND DatabaseName != ''");
-            $mainDb = DB_NAME;
-            $allReqs = [];
-
-            foreach ($hcs as $hc) {
-                $hcConn = Database::getHCConnection($hc['HealthCenterID']);
-                if (!$hcConn) continue;
-                try {
-                    $stmt = $hcConn->query("SELECT * FROM PatientRequisition ORDER BY RequestDate DESC");
-                    $reqs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                    foreach ($reqs as &$req) {
-                        $req['HealthCenterID'] = $hc['HealthCenterID'];
-                        $req['HealthCenterName'] = $hc['Name'];
-                        // Fetch items
-                        $istmt = $hcConn->prepare("
-                            SELECT pri.*, i.ItemName, i.UnitOfMeasure as Unit
-                            FROM PatientRequisitionItem pri
-                            LEFT JOIN $mainDb.Item i ON pri.ItemID = i.ItemID
-                            WHERE pri.PatientRequisitionID = ?
-                        ");
-                        $istmt->execute([$req['PatientRequisitionID']]);
-                        $req['Items'] = $istmt->fetchAll(PDO::FETCH_ASSOC);
-                    }
-                    $allReqs = array_merge($allReqs, $reqs);
-                } catch (Exception $e) {
-                    // Skip failed HC; don't crash the whole request
-                    error_log("get_all_patient_requisitions HC {$hc['HealthCenterID']} error: " . $e->getMessage());
-                }
-            }
-
-            echo json_encode(['success' => true, 'requisitions' => $allReqs]);
-        } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        }
-
-    } elseif ($action === 'approve_patient_requisition') {
-        // Head Pharmacist: approve or deny a patient requisition
-        try {
-            if (!isset($_SESSION['user'])) {
-                echo json_encode(['success' => false, 'message' => 'Not authenticated']); exit;
-            }
-            $approver = $_SESSION['user'];
-            $hcId = intval($_POST['hc_id'] ?? 0);
-            $reqId = intval($_POST['requisition_id'] ?? 0);
-            $status = in_array($_POST['status'] ?? '', ['Approved', 'Denied']) ? $_POST['status'] : null;
-            $remarks = trim($_POST['remarks'] ?? '');
-
-            if (!$hcId || !$reqId || !$status) {
-                echo json_encode(['success' => false, 'message' => 'Missing required fields']); exit;
-            }
-
-            $hcConn = Database::getHCConnection($hcId);
-            if (!$hcConn) {
-                echo json_encode(['success' => false, 'message' => 'HC database connection failed']); exit;
-            }
-
-            $checkStmt = $hcConn->prepare("SELECT StatusType FROM PatientRequisition WHERE PatientRequisitionID = ?");
-            $checkStmt->execute([$reqId]);
-            $currentStatus = $checkStmt->fetchColumn();
-
-            if ($currentStatus !== 'Pending') {
-                echo json_encode(['success' => false, 'message' => 'Requisition has already been processed (Current Status: ' . $currentStatus . ')']);
-                exit;
-            }
-
-            $approverName = ($approver['FirstName'] ?? '') . ' ' . ($approver['LastName'] ?? '');
-            
-            $hcConn->beginTransaction();
-
-            if ($status === 'Approved') {
-                // FIFO Logic: Deduct from inventory
-                $itemsStmt = $hcConn->prepare("SELECT * FROM PatientRequisitionItem WHERE PatientRequisitionID = ?");
-                $itemsStmt->execute([$reqId]);
-                $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-                foreach ($items as $item) {
-                    $qtyNeeded = $item['QuantityRequested'];
-                    $itemId = $item['ItemID'];
-                    $origRowId = $item['HCPRIID'];
-
-                    // Get oldest batches first
-                    $batchesStmt = $hcConn->prepare("
-                        SELECT * FROM hc_inventory 
-                        WHERE ItemID = ? AND QuantityOnHand > 0 
-                        ORDER BY ExpiryDate ASC, CreatedAt ASC
-                    ");
-                    $batchesStmt->execute([$itemId]);
-                    $batches = $batchesStmt->fetchAll(PDO::FETCH_ASSOC);
-
-                    $firstBatch = true;
-
-                    foreach ($batches as $batch) {
-                        if ($qtyNeeded <= 0) break;
-
-                        $deduct = min($qtyNeeded, $batch['QuantityOnHand']);
-                        
-                        // Update inventory
-                        $updateInv = $hcConn->prepare("UPDATE hc_inventory SET QuantityOnHand = QuantityOnHand - ? WHERE InventoryID = ?");
-                        $updateInv->execute([$deduct, $batch['InventoryID']]);
-
-                        // Update Requisition Item
-                        if ($firstBatch) {
-                            // Update the existing row
-                            $updateItem = $hcConn->prepare("UPDATE PatientRequisitionItem SET BatchID = ?, QuantityIssued = ? WHERE HCPRIID = ?");
-                            $updateItem->execute([$batch['BatchID'], $deduct, $origRowId]);
-                            $firstBatch = false;
-                        } else {
-                            // Insert new row for split batch
-                            $insertItem = $hcConn->prepare("
-                                INSERT INTO PatientRequisitionItem (PatientRequisitionID, ItemID, BatchID, QuantityRequested, QuantityIssued)
-                                VALUES (?, ?, ?, 0, ?)
-                            ");
-                            $insertItem->execute([$reqId, $itemId, $batch['BatchID'], $deduct]);
-                        }
-
-                        $qtyNeeded -= $deduct;
-                    }
-
-                    if ($qtyNeeded > 0) {
-                        // Not enough stock to fulfill completely
-                        // You could choose to throw an error/rollback here, or just approve what is possible.
-                        // For now, we'll allow partial approval but maybe log it?
-                    }
-                }
-            }
-
-            $stmt = $hcConn->prepare("
-                UPDATE PatientRequisition
-                SET StatusType = ?, Remarks = ?, ApprovedBy = ?, ApproverName = ?, ApprovedAt = NOW()
-                WHERE PatientRequisitionID = ?
-            ");
-            $stmt->execute([$status, $remarks, $approver['UserID'], trim($approverName), $reqId]);
-            
-            $hcConn->commit();
-
-            log_security_event($approver['UserID'], 'Patient Requisition Approval', 'Success', "Set req #$reqId to $status");
-            echo json_encode(['success' => true, 'message' => "Requisition $status successfully."]);
-
-        } catch (Exception $e) {
-            if (isset($hcConn) && $hcConn->inTransaction()) {
-                $hcConn->rollBack();
-            }
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-        }
 
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);

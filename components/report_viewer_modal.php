@@ -1,8 +1,5 @@
-<div id="reportViewerModal" class="hidden fixed inset-0 z-[100] flex justify-center items-center p-4 no-print">
-    <!-- Backdrop with blur -->
-    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="document.getElementById('reportViewerModal').classList.add('hidden')"></div>
-    
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col relative animate-in zoom-in-95 duration-200">
+<div id="reportViewerModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 no-print" onclick="if(event.target === this) closeReportModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col animate-premium-in" onclick="event.stopPropagation()">
         <!-- Progress Bar (Subtle) -->
         <div class="h-1 w-full bg-slate-100 dark:bg-slate-700/50 rounded-t-2xl overflow-hidden">
             <div class="h-full bg-teal-500 w-full"></div>
@@ -10,7 +7,7 @@
 
         <div class="printable-area p-10 flex-grow overflow-y-auto">
             <div class="text-center mb-8">
-                <h1 class="text-xl font-extrabold text-slate-800 dark:text-white font-display mb-1">Uswag Iloilo City Pharmacy Report</h1>
+                <h1 class="text-xl font-extrabold text-slate-800 dark:text-white font-display mb-1">Iloilo City Pharmacy Report</h1>
                 <h2 id="reportTypeTitle" class="text-base font-bold text-slate-500 dark:text-slate-400"></h2>
                 <div class="h-px w-full bg-slate-100 dark:bg-slate-700 mt-6"></div>
             </div>

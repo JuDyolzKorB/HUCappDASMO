@@ -24,7 +24,7 @@ if ($page === 'logout') {
 }
 
 // Allowed pages list
-$allowed_pages = ['dashboard', 'requisitions', 'hc_requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'dpri_import', 'hc_patients', 'hc_patient_requisitions'];
+$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'patient_requisitions', 'history'];
 
 // Page Title Handling
 $pageTitles = [
@@ -32,9 +32,8 @@ $pageTitles = [
     'requisitions' => 'Requisitions',
     'procurement-orders' => 'Procurement Orders',
     'receiving' => 'Receiving',
-    'inventory' => 'Inventory',
+    'inventory' => 'Main Inventory',
     'hc_inventory' => 'Health Center Inventory',
-    'hc_requisitions' => 'Local Requisitions',
     'warehouse' => 'Warehouse Management',
     'issuance' => 'Issuance',
     'adjustments' => 'Adjustments',
@@ -44,9 +43,8 @@ $pageTitles = [
     'login' => 'Sign In',
     'signup' => 'Sign Up',
     'suppliers' => 'Supplier Management',
-    'dpri_import' => 'DPRI Import',
-    'hc_patients' => 'Patients',
-    'hc_patient_requisitions' => 'Patient Requisitions'
+    'patient_requisitions' => 'Patient Requisitions',
+    'history' => 'System History'
 ];
 
 $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
@@ -57,7 +55,7 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uswag Iloilo City Pharmacy - <?php echo $pageTitle; ?></title>
+    <title>Iloilo City Pharmacy - <?php echo $pageTitle; ?></title>
     <!-- Google Fonts: Inter & Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -98,7 +96,6 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
             }
         }
     </style>
-    
     <link rel="stylesheet" href="css/style.css">
     <style>
         /* Custom scrollbar to match the original app feel */
@@ -117,7 +114,6 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
             background: #94a3b8;
         }
     </style>
-    <link rel="stylesheet" href="css/style.css">
     <script>
         // Check for saved user preference
         const sessionTheme = '<?php echo $_SESSION['user']['ThemePreference'] ?? ''; ?>';
@@ -164,6 +160,40 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
         </main>
     <?php endif; ?>
 
-    <script src="assets/js/realtime.js"></script>
+    <script>
+        /**
+         * GLOBAL MODAL TELEPORTATION & STANDARDIZATION
+         * Ensures all modals break out of any nested stacking context by moving them
+         * to be direct children of the document body.
+         */
+        const teleportModals = () => {
+            const modals = document.querySelectorAll('[id$="Modal"], .fixed.inset-0');
+            modals.forEach(modal => {
+                // Skip Alpine teleported/managed ones if they already handled it
+                if (modal.hasAttribute('x-teleport') || modal.closest('[x-data]')) {
+                    return; 
+                }
+                
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+            });
+        };
+
+        // Run on load and whenever a new item might be injected
+        document.addEventListener('DOMContentLoaded', teleportModals);
+        
+        // Intercept common modal triggers to ensure they are teleported before showing
+        const originalOpenFunctions = ['openAddPOModal', 'openEditSupplierModal', 'openEditWarehouseModal', 'openAddItemModal'];
+        originalOpenFunctions.forEach(fnName => {
+            const originalFn = window[fnName];
+            if (typeof originalFn === 'function') {
+                window[fnName] = function(...args) {
+                    teleportModals();
+                    return originalFn.apply(this, args);
+                };
+            }
+        });
+    </script>
 </body>
 </html>

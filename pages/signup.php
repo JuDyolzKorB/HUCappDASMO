@@ -1,30 +1,30 @@
 <?php
 // pages/signup.php
-$healthCenters = get_data('health_centers');
+$health_centers = get_data('health_centers');
 ?>
-<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false, role: 'Health Center Staff', isNewHC: false }">
+<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false, selectedRole: 'Administrator' }">
     <div class="auth-card animate-premium-in">
         <!-- ... (branding panel unchanged) ... -->
         <div class="auth-branding hidden md:flex animated-gradient">
             <div class="logo-container">
-                <img src="assets/img/logo.png" alt="Uswag Logo" class="w-16 h-16">
+                <img src="assets/img/logo.png" alt="Pharmacy Logo" class="w-16 h-16">
             </div>
             <p class="text-sm font-medium text-white/80 mb-1">Iloilo City Government</p>
-            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Uswag Iloilo City Pharmacy</h1>
+            <h1 class="text-3xl font-bold mb-2 leading-tight font-display text-white">Iloilo City Pharmacy</h1>
             <p class="text-sm text-white/90 mb-6 max-w-xs px-2 leading-relaxed font-normal">A comprehensive, end-to-end inventory management system designed for modern healthcare.</p>
             <div class="testimonial-box bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-lg">
                 <p class="text-xs italic leading-relaxed font-medium">"This system has revolutionized our inventory control, enhancing accountability and ensuring the efficient delivery of medical supplies for the people of Iloilo City."</p>
-                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Uswag Iloilo City Pharmacy</p>
+                <p class="mt-4 text-xs font-semibold text-white/90">- Head Pharmacist, Iloilo City Pharmacy</p>
             </div>
         </div>
 
         <!-- Right Panel - Form -->
         <div class="auth-form-container w-full md:w-1/2 overflow-y-auto max-h-[96vh]">
             <div class="text-center mb-6">
-                <h2 class="text-3xl font-bold text-slate-800 font-display">Create Account</h2>
-                <p class="mt-1.5 text-sm text-slate-500">
+                <h2 class="text-3xl font-bold text-slate-800 dark:text-white font-display">Create Account</h2>
+                <p class="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
                     Existing user? 
-                    <button onclick="location.href='index.php?page=login'" class="text-teal-600 hover:underline font-medium">
+                    <button onclick="location.href='index.php?page=login'" class="text-teal-600 dark:text-teal-400 hover:underline font-medium transition-colors">
                         Sign In
                     </button>
                 </p>
@@ -35,84 +35,52 @@ $healthCenters = get_data('health_centers');
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                        <label for="firstName" class="block text-sm font-medium text-slate-600 mb-1">First Name</label>
-                        <input id="firstName" name="firstName" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="John">
+                        <label for="firstName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">First Name</label>
+                        <input id="firstName" name="firstName" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="John">
                     </div>
                     <div>
-                        <label for="middleName" class="block text-sm font-medium text-slate-600 mb-1.5">Middle Name</label>
-                        <input id="middleName" name="middleName" type="text" class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="M.">
+                        <label for="middleName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Middle Name</label>
+                        <input id="middleName" name="middleName" type="text" class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="M.">
                     </div>
                     <div>
-                        <label for="lastName" class="block text-sm font-medium text-slate-600 mb-1.5">Last Name</label>
-                        <input id="lastName" name="lastName" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="Doe">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                        <label for="role" class="block text-sm font-medium text-slate-600 mb-1.5">Role</label>
-                        <select id="role" name="role" required x-model="role" class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
-                            <option value="Administrator">Administrator</option>
-                            <option value="Head Pharmacist">Head Pharmacist</option>
-                            <option value="Health Center Staff">Health Center Staff</option>
-                            <option value="Warehouse Staff">Warehouse Staff</option>
-                            <option value="Accounting Office User">Accounting Office User</option>
-                            <option value="CMO/GSO/COA User">CMO/GSO/COA User</option>
-                        </select>
-                    </div>
-
-                    <div x-show="role === 'Health Center Staff'" x-transition class="space-y-4 pt-2">
-                        <div class="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 shadow-sm">
-                            <div class="flex justify-between items-center mb-3">
-                                <label for="healthCenterId" class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Health Center Assignment</label>
-                                <button type="button" @click="isNewHC = !isNewHC" class="text-[10px] uppercase tracking-widest font-black text-teal-600 hover:text-teal-700 bg-teal-50 px-2 py-1 rounded-md transition-colors">
-                                    <span x-text="isNewHC ? '← Select Existing' : '+ Register New'"></span>
-                                </button>
-                            </div>
-                            
-                            <div x-show="!isNewHC" x-transition>
-                                <select id="healthCenterId" name="healthCenterId" :required="role === 'Health Center Staff' && !isNewHC" class="form-select bg-white border-slate-200 text-sm py-2.5 shadow-sm">
-                                    <option value="">Select health center...</option>
-                                    <?php foreach ($healthCenters as $hc): ?>
-                                        <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo htmlspecialchars($hc['Name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <p class="mt-2 text-[10px] text-slate-400 italic">Select the local health center you are assigned to.</p>
-                            </div>
-
-                            <div x-show="isNewHC" x-transition class="space-y-4">
-                                <input type="hidden" name="isNewHC" :value="isNewHC ? '1' : '0'">
-                                <div class="grid grid-cols-1 gap-3">
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Clinic/Center Name</label>
-                                        <input name="newHCName" type="text" :required="role === 'Health Center Staff' && isNewHC" class="form-input bg-white border-slate-200 text-sm py-2.5 shadow-sm placeholder:text-slate-300" placeholder="e.g. Southside District Health Center">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Complete Address</label>
-                                        <input name="newHCAddress" type="text" class="form-input bg-white border-slate-200 text-sm py-2.5 shadow-sm placeholder:text-slate-300" placeholder="Street, Barangay, District, Iloilo City">
-                                    </div>
-                                </div>
-                                <div class="p-2.5 bg-teal-50/50 rounded-lg border border-teal-100/50">
-                                    <p class="text-[10px] text-teal-700 leading-relaxed font-medium">
-                                        ✨ <strong>New Registry:</strong> A dedicated database will be automatically provisioned for this center upon account creation.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                        <label for="lastName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Last Name</label>
+                        <input id="lastName" name="lastName" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="Doe">
                     </div>
                 </div>
 
                 <div>
-                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1.5">Username</label>
-                    <input id="username" name="username" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="johndoe">
+                    <label for="role" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Role</label>
+                    <select id="role" name="role" required x-model="selectedRole" class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
+                        <option value="Administrator">Administrator</option>
+                        <option value="Head Pharmacist">Head Pharmacist</option>
+                        <option value="Health Center Staff">Health Center Staff</option>
+                        <option value="Warehouse Staff">Warehouse Staff</option>
+                        <option value="Accounting Office User">Accounting Office User</option>
+                        <option value="CMO/GSO/COA User">CMO/GSO/COA User</option>
+                    </select>
+                </div>
+
+                <div x-show="selectedRole === 'Health Center Staff'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                    <label for="healthCenterId" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Health Center</label>
+                    <select id="healthCenterId" name="healthCenterId" :required="selectedRole === 'Health Center Staff'" class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
+                        <option value="">Select Health Center</option>
+                        <?php foreach ($health_centers as $hc): ?>
+                            <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo htmlspecialchars($hc['Name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Username</label>
+                    <input id="username" name="username" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="johndoe">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <label for="password" class="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                        <label for="password" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Password</label>
                         <div class="relative">
-                            <input id="password" name="password" :type="passVisible ? 'text' : 'password'" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5 pr-10" placeholder="••••••••">
-                            <button type="button" @click="passVisible = !passVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                            <input id="password" name="password" :type="passVisible ? 'text' : 'password'" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 pr-10 dark:text-white placeholder-slate-400/50" placeholder="••••••••">
+                            <button type="button" @click="passVisible = !passVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-teal-500 focus:outline-none transition-colors">
                                 <svg x-show="!passVisible" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -124,10 +92,10 @@ $healthCenters = get_data('health_centers');
                         </div>
                     </div>
                     <div>
-                        <label for="confirmPassword" class="block text-sm font-medium text-slate-600 mb-1.5">Confirm Password</label>
+                        <label for="confirmPassword" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Confirm Password</label>
                         <div class="relative">
-                            <input id="confirmPassword" name="confirmPassword" :type="confirmVisible ? 'text' : 'password'" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5 pr-10" placeholder="••••••••">
-                            <button type="button" @click="confirmVisible = !confirmVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                            <input id="confirmPassword" name="confirmPassword" :type="confirmVisible ? 'text' : 'password'" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 pr-10 dark:text-white placeholder-slate-400/50" placeholder="••••••••">
+                            <button type="button" @click="confirmVisible = !confirmVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-teal-500 focus:outline-none transition-colors">
                                 <svg x-show="!confirmVisible" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -149,9 +117,9 @@ $healthCenters = get_data('health_centers');
                 </div>
             </form>
             
-            <div class="mt-6 text-center border-t border-slate-50 pt-4">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    &copy; 2026 USWAG ILOILO CITY
+            <div class="mt-6 text-center border-t border-slate-50 dark:border-slate-800/50 pt-4">
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
+                    &copy; 2026 ILOILO CITY
                 </p>
             </div>
         </div>
@@ -169,7 +137,7 @@ async function handleSignup(event) {
     
     if(formData.get('password') !== formData.get('confirmPassword')) {
          messageDiv.textContent = "Passwords do not match!";
-         messageDiv.className = "text-sm text-center text-red-600 p-2 border border-red-200 bg-red-50 font-medium";
+         messageDiv.className = "text-sm text-center text-red-600 dark:text-red-400 p-2 border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 font-medium rounded-xl";
          messageDiv.classList.remove('hidden');
          return;
     }
@@ -183,12 +151,12 @@ async function handleSignup(event) {
         
         if (result.success) {
             messageDiv.textContent = "Account created successfully! Redirecting...";
-            messageDiv.className = "text-sm text-center text-green-600 p-2 border border-green-200 bg-green-50 font-medium";
+            messageDiv.className = "text-sm text-center text-green-600 dark:text-green-400 p-2 border border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/10 font-medium rounded-xl";
             messageDiv.classList.remove('hidden');
-            setTimeout(() => window.location.href = 'index.php?page=dashboard', 1000);
+            setTimeout(() => window.location.href = 'index.php?page=login', 1000);
         } else {
             messageDiv.textContent = result.message || "Signup failed";
-            messageDiv.className = "text-sm text-center text-red-600 p-2 border border-red-200 bg-red-50 font-medium";
+            messageDiv.className = "text-sm text-center text-red-600 dark:text-red-400 p-2 border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 font-medium rounded-xl";
             messageDiv.classList.remove('hidden');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Create Account';
