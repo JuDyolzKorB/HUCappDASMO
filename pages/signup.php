@@ -20,10 +20,10 @@
         <!-- Right Panel - Form -->
         <div class="auth-form-container w-full md:w-1/2 overflow-y-auto max-h-[96vh]">
             <div class="text-center mb-6">
-                <h2 class="text-3xl font-bold text-slate-800 font-display">Create Account</h2>
-                <p class="mt-1.5 text-sm text-slate-500">
+                <h2 class="text-3xl font-bold text-slate-800 dark:text-white font-display">Create Account</h2>
+                <p class="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
                     Existing user? 
-                    <button onclick="location.href='index.php?page=login'" class="text-teal-600 hover:underline font-medium">
+                    <button onclick="location.href='index.php?page=login'" class="text-teal-600 dark:text-teal-400 hover:underline font-medium transition-colors">
                         Sign In
                     </button>
                 </p>
@@ -34,22 +34,22 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                        <label for="firstName" class="block text-sm font-medium text-slate-600 mb-1">First Name</label>
-                        <input id="firstName" name="firstName" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="John">
+                        <label for="firstName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">First Name</label>
+                        <input id="firstName" name="firstName" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="John">
                     </div>
                     <div>
-                        <label for="middleName" class="block text-sm font-medium text-slate-600 mb-1.5">Middle Name</label>
-                        <input id="middleName" name="middleName" type="text" class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="M.">
+                        <label for="middleName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Middle Name</label>
+                        <input id="middleName" name="middleName" type="text" class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="M.">
                     </div>
                     <div>
-                        <label for="lastName" class="block text-sm font-medium text-slate-600 mb-1.5">Last Name</label>
-                        <input id="lastName" name="lastName" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="Doe">
+                        <label for="lastName" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Last Name</label>
+                        <input id="lastName" name="lastName" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="Doe">
                     </div>
                 </div>
 
                 <div>
-                    <label for="role" class="block text-sm font-medium text-slate-600 mb-1.5">Role</label>
-                    <select id="role" name="role" required class="form-select bg-slate-50 border-slate-200 text-sm py-2.5">
+                    <label for="role" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Role</label>
+                    <select id="role" name="role" required class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
                         <option value="Administrator">Administrator</option>
                         <option value="Head Pharmacist">Head Pharmacist</option>
                         <option value="Health Center Staff">Health Center Staff</option>
@@ -60,16 +60,16 @@
                 </div>
 
                 <div>
-                    <label for="username" class="block text-sm font-medium text-slate-600 mb-1.5">Username</label>
-                    <input id="username" name="username" type="text" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5" placeholder="johndoe">
+                    <label for="username" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Username</label>
+                    <input id="username" name="username" type="text" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white placeholder-slate-400/50" placeholder="johndoe">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                        <label for="password" class="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                        <label for="password" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Password</label>
                         <div class="relative">
-                            <input id="password" name="password" :type="passVisible ? 'text' : 'password'" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5 pr-10" placeholder="••••••••">
-                            <button type="button" @click="passVisible = !passVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                            <input id="password" name="password" :type="passVisible ? 'text' : 'password'" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 pr-10 dark:text-white placeholder-slate-400/50" placeholder="••••••••">
+                            <button type="button" @click="passVisible = !passVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-teal-500 focus:outline-none transition-colors">
                                 <svg x-show="!passVisible" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -81,10 +81,10 @@
                         </div>
                     </div>
                     <div>
-                        <label for="confirmPassword" class="block text-sm font-medium text-slate-600 mb-1.5">Confirm Password</label>
+                        <label for="confirmPassword" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Confirm Password</label>
                         <div class="relative">
-                            <input id="confirmPassword" name="confirmPassword" :type="confirmVisible ? 'text' : 'password'" required class="form-input bg-slate-50 border-slate-200 text-sm py-2.5 pr-10" placeholder="••••••••">
-                            <button type="button" @click="confirmVisible = !confirmVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 focus:outline-none">
+                            <input id="confirmPassword" name="confirmPassword" :type="confirmVisible ? 'text' : 'password'" required class="form-input bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 pr-10 dark:text-white placeholder-slate-400/50" placeholder="••••••••">
+                            <button type="button" @click="confirmVisible = !confirmVisible" class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-teal-500 focus:outline-none transition-colors">
                                 <svg x-show="!confirmVisible" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639l4.42-7.108a1.012 1.012 0 0 1 1.638 0l4.42 7.108a1.012 1.012 0 0 1 0 .639l-4.42 7.108a1.012 1.012 0 0 1-1.638 0l-4.42-7.108Z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -106,8 +106,8 @@
                 </div>
             </form>
             
-            <div class="mt-6 text-center border-t border-slate-50 pt-4">
-                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            <div class="mt-6 text-center border-t border-slate-50 dark:border-slate-800/50 pt-4">
+                <p class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
                     &copy; 2026 ILOILO CITY
                 </p>
             </div>
@@ -126,7 +126,7 @@ async function handleSignup(event) {
     
     if(formData.get('password') !== formData.get('confirmPassword')) {
          messageDiv.textContent = "Passwords do not match!";
-         messageDiv.className = "text-sm text-center text-red-600 p-2 border border-red-200 bg-red-50 font-medium";
+         messageDiv.className = "text-sm text-center text-red-600 dark:text-red-400 p-2 border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 font-medium rounded-xl";
          messageDiv.classList.remove('hidden');
          return;
     }
@@ -140,12 +140,12 @@ async function handleSignup(event) {
         
         if (result.success) {
             messageDiv.textContent = "Account created successfully! Redirecting...";
-            messageDiv.className = "text-sm text-center text-green-600 p-2 border border-green-200 bg-green-50 font-medium";
+            messageDiv.className = "text-sm text-center text-green-600 dark:text-green-400 p-2 border border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/10 font-medium rounded-xl";
             messageDiv.classList.remove('hidden');
             setTimeout(() => window.location.href = 'index.php?page=dashboard', 1000);
         } else {
             messageDiv.textContent = result.message || "Signup failed";
-            messageDiv.className = "text-sm text-center text-red-600 p-2 border border-red-200 bg-red-50 font-medium";
+            messageDiv.className = "text-sm text-center text-red-600 dark:text-red-400 p-2 border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 font-medium rounded-xl";
             messageDiv.classList.remove('hidden');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Create Account';

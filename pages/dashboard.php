@@ -60,7 +60,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
     }
     ?>
     
-        <div class="space-y-8 animate-fade-in">
+        <div class="space-y-8 animate-fade-in" x-data="dashboardComponent(<?php echo htmlspecialchars(json_encode($stats)); ?>)">
             <!-- Hero Section -->
             <div class="relative overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-2xl">
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -88,7 +88,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                     <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Inventory Requisitions</p>
                     <div class="flex items-baseline gap-2 mt-1">
-                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_reqs']; ?></h3>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white" x-text="stats.pending_reqs"><?php echo $stats['pending_reqs']; ?></h3>
                     </div>
                 </div>
 
@@ -101,7 +101,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                     <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Patient Requisitions</p>
                     <div class="flex items-baseline gap-2 mt-1">
-                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_patient_reqs']; ?></h3>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white" x-text="stats.pending_patient_reqs"><?php echo $stats['pending_patient_reqs']; ?></h3>
                     </div>
                 </div>
 
@@ -114,7 +114,7 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                     <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Procurement Orders</p>
                     <div class="flex items-baseline gap-2 mt-1">
-                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['pending_pos']; ?></h3>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white" x-text="stats.pending_pos"><?php echo $stats['pending_pos']; ?></h3>
                     </div>
                 </div>
 
@@ -127,12 +127,12 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                     </div>
                     <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Low Stock Batches</p>
                     <div class="flex items-baseline gap-2 mt-1">
-                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white"><?php echo $stats['low_stock']; ?></h3>
+                        <h3 class="text-3xl font-bold text-slate-900 dark:text-white" x-text="stats.low_stock"><?php echo $stats['low_stock']; ?></h3>
                     </div>
                 </div>
             </div>
             
-            <!-- Recent Requisitions Table -->
+            <!-- Recent Requisitions Table (Fall back to full refresh for now) -->
             <div class="table-container">
                 <div class="table-header">
                     <div>
@@ -161,13 +161,14 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                                         <?php echo $r['RequisitionNumber'] ?? 'REQ-Unknown'; ?>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $r['HealthCenterName']; ?></td>
-                                <td class="px-6 py-4 text-slate-500 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($r['RequestedDate'] ?? $r['RequestDate'] ?? 'now')); ?></td>
+                                <td class="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm font-medium"><?php echo $r['HealthCenterName'] ?? 'Unknown'; ?></td>
+                                <td class="px-6 py-4 text-slate-50 dark:text-slate-500 text-xs font-semibold"><?php echo date('M d, Y', strtotime($r['RequestedDate'] ?? $r['RequestDate'] ?? 'now')); ?></td>
                                 <td class="px-6 py-4">
                                     <?php 
                                         $statusClass = 'status-pending';
                                         if ($r['StatusType'] === 'Approved') $statusClass = 'status-success';
                                         if ($r['StatusType'] === 'Rejected') $statusClass = 'status-danger';
+                                        if ($r['StatusType'] === 'Completed') $statusClass = 'status-success opacity-75';
                                     ?>
                                     <span class="status-badge <?php echo $statusClass; ?>"><?php echo $r['StatusType']; ?></span>
                                 </td>
@@ -183,6 +184,30 @@ if ($userRole !== 'Administrator' && $dashboardFile) {
                 </div>
             </div>
         </div>
+        <script>
+        function dashboardComponent(initialStats) {
+            return {
+                stats: initialStats,
+                init() {
+                    // Integrated refresh logic
+                    window.refreshPageData = () => {
+                        console.log('Dashboard: AJAX Sync...');
+                        const formData = new FormData();
+                        formData.append('action', 'get_dashboard_stats');
+                        
+                        fetch('api.php', { method: 'POST', body: formData })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    this.stats = data.stats;
+                                }
+                            })
+                            .catch(err => console.error('Dashboard sync error:', err));
+                    };
+                }
+            };
+        }
+        </script>
     <?php
 }
 ?>

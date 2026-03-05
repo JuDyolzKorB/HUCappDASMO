@@ -1301,6 +1301,237 @@ try {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
 
+    } elseif ($action === 'get_history') {
+        $type = $_POST['type'] ?? 'item_additions';
+        $limit = isset($_POST['limit']) ? (int)$_POST['limit'] : 100;
+        
+        global $db;
+        $data = [];
+
+        try {
+            if ($type === 'item_additions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        r.ReceivedDate as Date,
+                        i.ItemName,
+                        i.ItemID,
+                        ri.QuantityReceived as Quantity,
+                        cib.BatchID,
+                        cib.ExpiryDate,
+                        CONCAT(u.FName, ' ', u.LName) as User,
+                        'Addition' as Reference
+                    FROM Receiving r
+                    JOIN ReceivingItem ri ON r.ReceivingID = ri.ReceivingID
+                    JOIN CentralInventoryBatch cib ON ri.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON r.UserID = u.UserID
+                    ORDER BY r.ReceivedDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'hc_requisitions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        r.RequestDate as Date,
+                        r.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ri.QuantityRequested as Quantity,
+                        r.StatusType as Status,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM Requisition r
+                    JOIN RequisitionItem ri ON r.RequisitionID = ri.RequisitionID
+                    JOIN Item i ON ri.ItemID = i.ItemID
+                    JOIN HealthCenters hc ON r.HealthCenterID = hc.HealthCenterID
+                    LEFT JOIN Users u ON r.UserID = u.UserID
+                    ORDER BY r.RequestDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'warehouse_issuances') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        iss.IssueDate as Date,
+                        req.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ii.QuantityIssued as Quantity,
+                        ii.BatchID,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM Issuance iss
+                    JOIN IssuanceItem ii ON iss.IssuanceID = ii.IssuanceID
+                    JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    JOIN HealthCenters hc ON req.HealthCenterID = hc.HealthCenterID
+                    JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON iss.UserID = u.UserID
+                    ORDER BY iss.IssueDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'adjustments') {
+                $manualAdj = $db->fetchAll("
+                    SELECT 
+                        ia.AdjustmentDate as Date,
+                        'Manual Adjustment' as Reference,
+                        i.ItemName,
+                        ia.AdjustmentQuantity as Quantity,
+                        ia.Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM InventoryAdjustment ia
+                    JOIN CentralInventoryBatch cib ON ia.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON ia.UserID = u.UserID
+                ");
+
+                $reqAdj = $db->fetchAll("
+                    SELECT 
+                        ra.AdjustmentDate as Date,
+                        CONCAT('Requisition ', ra.AdjustmentType) as Reference,
+                        i.ItemName,
+                        rad.QuantityAdjusted as Quantity,
+                        ra.Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM RequisitionAdjustment ra
+                    JOIN RequisitionAdjustmentDetail rad ON ra.RequisitionAdjustmentID = rad.RequisitionAdjustmentID
+                    JOIN CentralInventoryBatch cib ON rad.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON ra.UserID = u.UserID
+                ");
+
+                $disposals = $db->fetchAll("
+                    SELECT 
+                        noi.ReportDate as Date,
+                        CONCAT('Notice: ', noi.IssueType) as Reference,
+                        i.ItemName,
+                        -noi.QuantityAffected as Quantity,
+                        noi.Remarks as Reason,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM NoticeOfIssue noi
+                    JOIN CentralInventoryBatch cib ON noi.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON noi.UserID = u.UserID
+                ");
+
+                $data = array_merge($manualAdj, $reqAdj, $disposals);
+                usort($data, function($a, $b) {
+                    return strtotime($b['Date']) - strtotime($a['Date']);
+                });
+                $data = array_slice($data, 0, $limit);
+
+            } elseif ($type === 'patient_list') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        pr.RequestDate as Date,
+                        pr.RequisitionNumber as Reference,
+                        CONCAT(p.FName, ' ', p.LName) as Patient,
+                        i.ItemName,
+                        pri.QuantityRequested as Quantity,
+                        pr.StatusType as Status,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM HCPatientRequisition pr
+                    JOIN HCPatientRequisitionItem pri ON pr.PatientReqID = pri.PatientReqID
+                    JOIN HCPatient p ON pr.PatientID = p.PatientID
+                    JOIN Item i ON pri.ItemID = i.ItemID
+                    LEFT JOIN Users u ON pr.UserID = u.UserID
+                    ORDER BY pr.RequestDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'hc_inventory_additions') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        iss.IssueDate as Date,
+                        req.RequisitionNumber as Reference,
+                        hc.Name as HealthCenter,
+                        i.ItemName,
+                        ii.QuantityIssued as Quantity,
+                        ii.BatchID,
+                        CONCAT(u.FName, ' ', u.LName) as User,
+                        'HC Arrival' as Type
+                    FROM Issuance iss
+                    JOIN IssuanceItem ii ON iss.IssuanceID = ii.IssuanceID
+                    JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    JOIN HealthCenters hc ON req.HealthCenterID = hc.HealthCenterID
+                    JOIN CentralInventoryBatch cib ON ii.BatchID = cib.BatchID
+                    JOIN Item i ON cib.ItemID = i.ItemID
+                    LEFT JOIN Users u ON iss.UserID = u.UserID
+                    WHERE req.StatusType = 'Completed'
+                    ORDER BY iss.IssueDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'summary') {
+                // Additive counting: Total items ever received by CENTRAL
+                $data = $db->fetchAll("
+                    SELECT 
+                        i.ItemName,
+                        i.ItemID,
+                        IFNULL(SUM(ri.QuantityReceived), 0) as TotalAdded,
+                        COUNT(DISTINCT r.ReceivingID) as TotalTransactions,
+                        MAX(r.ReceivedDate) as LastReceived
+                    FROM Item i
+                    LEFT JOIN CentralInventoryBatch cib ON i.ItemID = cib.ItemID
+                    LEFT JOIN ReceivingItem ri ON cib.BatchID = ri.BatchID
+                    LEFT JOIN Receiving r ON ri.ReceivingID = r.ReceivingID
+                    GROUP BY i.ItemID
+                    HAVING TotalAdded > 0
+                    ORDER BY TotalAdded DESC
+                ");
+            } elseif ($type === 'hc_summary') {
+                // Additive counting: Total items ever received by ALL HEALTH CENTERS
+                $data = $db->fetchAll("
+                    SELECT 
+                        i.ItemName,
+                        i.ItemID,
+                        IFNULL(SUM(ii.QuantityIssued), 0) as TotalAdded,
+                        COUNT(DISTINCT iss.IssuanceID) as TotalTransactions,
+                        MAX(iss.IssueDate) as LastReceived
+                    FROM Item i
+                    LEFT JOIN CentralInventoryBatch cib ON i.ItemID = cib.ItemID
+                    LEFT JOIN IssuanceItem ii ON cib.BatchID = ii.BatchID
+                    LEFT JOIN Issuance iss ON ii.IssuanceID = iss.IssuanceID
+                    LEFT JOIN Requisition req ON iss.RequisitionID = req.RequisitionID
+                    WHERE req.StatusType = 'Completed'
+                    GROUP BY i.ItemID
+                    HAVING TotalAdded > 0
+                    ORDER BY TotalAdded DESC
+                ");
+            }
+
+            echo json_encode(['success' => true, 'data' => $data]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+    } elseif ($action === 'get_dashboard_stats') {
+        $userRole = $_SESSION['user']['Role'];
+        $requisitions = get_data('requisitions');
+        $procurementOrders = get_data('procurement_orders');
+        $inventory = get_data('inventory');
+        $patientRequisitions = get_data('patient_requisitions');
+
+        $stats = [
+            'pending_reqs' => 0,
+            'low_stock' => 0,
+            'pending_pos' => 0,
+            'pending_patient_reqs' => 0
+        ];
+
+        foreach ($requisitions as $r) {
+            if ($r['StatusType'] === 'Pending') $stats['pending_reqs']++;
+        }
+
+        foreach ($procurementOrders as $po) {
+            if ($po['StatusType'] === 'Pending') $stats['pending_pos']++;
+        }
+
+        foreach ($inventory as $batch) {
+            if ($batch['QuantityOnHand'] < 500) $stats['low_stock']++;
+        }
+
+        foreach ($patientRequisitions as $pr) {
+            if ($pr['StatusType'] === 'Pending') $stats['pending_patient_reqs']++;
+        }
+
+        echo json_encode(['success' => true, 'stats' => $stats]);
+        exit;
+
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
     }

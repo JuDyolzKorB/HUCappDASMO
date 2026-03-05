@@ -24,7 +24,7 @@ if ($page === 'logout') {
 }
 
 // Allowed pages list
-$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'patient_requisitions'];
+$allowed_pages = ['dashboard', 'requisitions', 'inventory', 'hc_inventory', 'procurement-orders', 'receiving', 'warehouse', 'issuance', 'adjustments', 'reports', 'settings', 'profile', 'login', 'signup', 'process_issuance', 'receive_items', 'suppliers', 'patient_requisitions', 'history'];
 
 // Page Title Handling
 $pageTitles = [
@@ -43,7 +43,8 @@ $pageTitles = [
     'login' => 'Sign In',
     'signup' => 'Sign Up',
     'suppliers' => 'Supplier Management',
-    'patient_requisitions' => 'Patient Requisitions'
+    'patient_requisitions' => 'Patient Requisitions',
+    'history' => 'System History'
 ];
 
 $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
@@ -95,7 +96,6 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
             }
         }
     </style>
-    
     <link rel="stylesheet" href="css/style.css">
     <style>
         /* Custom scrollbar to match the original app feel */
@@ -114,7 +114,6 @@ $pageTitle = isset($pageTitles[$page]) ? $pageTitles[$page] : 'Pharmacy System';
             background: #94a3b8;
         }
     </style>
-    <link rel="stylesheet" href="css/style.css">
     <script>
         // Check for saved user preference
         const sessionTheme = '<?php echo $_SESSION['user']['ThemePreference'] ?? ''; ?>';
