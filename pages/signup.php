@@ -1,7 +1,8 @@
 <?php
 // pages/signup.php
+$health_centers = get_data('health_centers');
 ?>
-<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false }">
+<div class="min-h-screen animated-gradient flex items-center justify-center p-4" x-data="{ passVisible: false, confirmVisible: false, selectedRole: 'Administrator' }">
     <div class="auth-card animate-premium-in">
         <!-- Left Panel - Hero -->
         <div class="auth-branding hidden md:flex animated-gradient">
@@ -49,13 +50,23 @@
 
                 <div>
                     <label for="role" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Role</label>
-                    <select id="role" name="role" required class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
+                    <select id="role" name="role" required x-model="selectedRole" class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
                         <option value="Administrator">Administrator</option>
                         <option value="Head Pharmacist">Head Pharmacist</option>
                         <option value="Health Center Staff">Health Center Staff</option>
                         <option value="Warehouse Staff">Warehouse Staff</option>
                         <option value="Accounting Office User">Accounting Office User</option>
                         <option value="CMO/GSO/COA User">CMO/GSO/COA User</option>
+                    </select>
+                </div>
+
+                <div x-show="selectedRole === 'Health Center Staff'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+                    <label for="healthCenterId" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Health Center</label>
+                    <select id="healthCenterId" name="healthCenterId" :required="selectedRole === 'Health Center Staff'" class="form-select bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-sm py-2.5 dark:text-white">
+                        <option value="">Select Health Center</option>
+                        <?php foreach ($health_centers as $hc): ?>
+                            <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo htmlspecialchars($hc['Name']); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
 
@@ -142,7 +153,7 @@ async function handleSignup(event) {
             messageDiv.textContent = "Account created successfully! Redirecting...";
             messageDiv.className = "text-sm text-center text-green-600 dark:text-green-400 p-2 border border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/10 font-medium rounded-xl";
             messageDiv.classList.remove('hidden');
-            setTimeout(() => window.location.href = 'index.php?page=dashboard', 1000);
+            setTimeout(() => window.location.href = 'index.php?page=login', 1000);
         } else {
             messageDiv.textContent = result.message || "Signup failed";
             messageDiv.className = "text-sm text-center text-red-600 dark:text-red-400 p-2 border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 font-medium rounded-xl";

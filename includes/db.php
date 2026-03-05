@@ -176,7 +176,7 @@ function get_data($file) {
     
     switch($file) {
         case 'users':
-            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, Username, Password FROM Users");
+            return $db->fetchAll("SELECT UserID, FName as FirstName, MName as MiddleName, LName as LastName, Role, Username, Password, HealthCenterID, EmailNotifications, InAppNotifications, ThemePreference FROM Users");
             
         case 'warehouses':
             return $db->fetchAll("SELECT * FROM Warehouse");
@@ -229,12 +229,26 @@ function get_data($file) {
         case 'requisitions':
             // Get requisitions with their items and approval logs
             // Join Issuance to get IssuanceID for adjustments
-            $reqs = $db->fetchAll("
-                SELECT r.*, i.IssuanceID 
-                FROM Requisition r 
-                LEFT JOIN Issuance i ON r.RequisitionID = i.RequisitionID
-                ORDER BY r.RequestDate DESC
-            ");
+            $user = $_SESSION['user'] ?? null;
+            $userRole = $user['Role'] ?? '';
+            $userHcId = $user['HealthCenterID'] ?? null;
+            $isHCUser = ($userRole === 'Health Center Staff' || $userRole === 'Health Center User');
+
+            $sql = "SELECT r.*, i.IssuanceID 
+                    FROM Requisition r 
+                    LEFT JOIN Issuance i ON r.RequisitionID = i.RequisitionID";
+            $params = [];
+            
+            if ($isHCUser && $userHcId) {
+                $sql .= " WHERE r.HealthCenterID = ?";
+                $params[] = $userHcId;
+            } else if (isset($_GET['hc_id'])) {
+                 $sql .= " WHERE r.HealthCenterID = ?";
+                 $params[] = $_GET['hc_id'];
+            }
+            
+            $sql .= " ORDER BY r.RequestDate DESC";
+            $reqs = $db->fetchAll($sql, $params);
             foreach ($reqs as &$req) {
                 $req['RequisitionItems'] = $db->fetchAll(
                     "SELECT ri.*, i.ItemName FROM RequisitionItem ri 
@@ -526,7 +540,7 @@ function save_data($file, $data) {
                 $id = $user['UserID'] ?? null;
                 if ($id && is_numeric($id)) {
                      $res = $db->execute(
-                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, Username = ?, Password = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
+                        "UPDATE Users SET FName = ?, MName = ?, LName = ?, Role = ?, Username = ?, Password = ?, HealthCenterID = ?, EmailNotifications = ?, InAppNotifications = ?, ThemePreference = ? WHERE UserID = ?",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
@@ -534,6 +548,7 @@ function save_data($file, $data) {
                             $user['Role'],
                             $user['Username'],
                             $user['Password'],
+                            $user['HealthCenterID'] ?? null,
                             $user['EmailNotifications'] ?? 1,
                             $user['InAppNotifications'] ?? 1,
                             $user['ThemePreference'] ?? 'system',
@@ -543,7 +558,7 @@ function save_data($file, $data) {
                     if (!$res) $allSuccess = false;
                 } else {
                     $res = $db->execute(
-                        "INSERT INTO Users (FName, MName, LName, Role, Username, Password, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO Users (FName, MName, LName, Role, Username, Password, HealthCenterID, EmailNotifications, InAppNotifications, ThemePreference) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         [
                             $user['FirstName'] ?? $user['FName'],
                             $user['MiddleName'] ?? $user['MName'],
@@ -551,6 +566,7 @@ function save_data($file, $data) {
                             $user['Role'],
                             $user['Username'],
                             $user['Password'],
+                            $user['HealthCenterID'] ?? null,
                             $user['EmailNotifications'] ?? 1,
                             $user['InAppNotifications'] ?? 1,
                             $user['ThemePreference'] ?? 'system'

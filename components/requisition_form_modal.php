@@ -15,40 +15,74 @@ $items = get_data('items');
                 </div>
                 
                 <div class="space-y-6">
+                    <?php 
+                    $user = getCurrentUser();
+                    $userRole = $user['Role'] ?? '';
+                    $userHcId = $user['HealthCenterID'] ?? null;
+                    $isHCUser = ($userRole === 'Health Center Staff' || $userRole === 'Health Center User');
+                    
+                    // Find HC Name if it's an HC User
+                    $assignedHCName = 'Your Health Center';
+                    if ($isHCUser && $userHcId) {
+                        foreach ($healthCenters as $hc) {
+                            if ($hc['HealthCenterID'] == $userHcId) {
+                                $assignedHCName = $hc['Name'];
+                                break;
+                            }
+                        }
+                    }
+                    ?>
+
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <label for="healthCenterId" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Health Center</label>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="manualHCToggle" class="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" onchange="toggleHCInput(this)">
-                                <label for="manualHCToggle" class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer">Enter Manually</label>
+                        <?php if ($isHCUser && $userHcId): ?>
+                            <div class="flex items-center justify-between p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/30 rounded-xl">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mb-1">Requesting Location</label>
+                                    <span class="text-sm font-bold text-slate-800 dark:text-white"><?php echo htmlspecialchars($assignedHCName); ?></span>
+                                </div>
+                                <div class="bg-teal-500/10 p-2 rounded-lg">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 text-teal-600 dark:text-teal-400">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                                    </svg>
+                                </div>
+                                <input type="hidden" name="healthCenterId" value="<?php echo $userHcId; ?>">
                             </div>
-                        </div>
+                        <?php else: ?>
+                            <div class="flex justify-between items-center">
+                                <label for="healthCenterId" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Health Center</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="manualHCToggle" class="w-4 h-4 text-teal-600 rounded border-gray-300 focus:ring-teal-500" onchange="toggleHCInput(this)">
+                                    <label for="manualHCToggle" class="text-xs text-slate-500 dark:text-slate-400 cursor-pointer">Enter Manually</label>
+                                </div>
+                            </div>
 
-                        <!-- Select Dropdown -->
-                        <div id="hcSelectContainer">
-                            <select id="healthCenterId" name="healthCenterId" required class="block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-slate-700 dark:text-white">
-                                <option value="">Select health center...</option>
-                                <?php foreach ($healthCenters as $hc): ?>
-                                    <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                            <!-- Select Dropdown -->
+                            <div id="hcSelectContainer">
+                                <select id="healthCenterId" name="healthCenterId" required class="block w-full pl-3 pr-10 py-2.5 text-base border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md dark:bg-slate-700 dark:text-white">
+                                    <option value="">Select health center...</option>
+                                    <?php foreach ($healthCenters as $hc): ?>
+                                        <option value="<?php echo $hc['HealthCenterID']; ?>"><?php echo $hc['Name']; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
 
-                        <!-- Manual Input Fields -->
-                        <div id="hcManualContainer" class="hidden space-y-3">
-                            <input 
-                                type="text" 
-                                name="healthCenterName" 
-                                id="manualHCName"
-                                placeholder="Health Center Name" 
-                                class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white">
-                            <textarea 
-                                name="healthCenterAddress" 
-                                id="manualHCAddress"
-                                placeholder="Address/Location" 
-                                rows="2"
-                                class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white"></textarea>
-                        </div>
+                            <!-- Manual Input Fields -->
+                            <div id="hcManualContainer" class="hidden space-y-3">
+                                <input 
+                                    type="text" 
+                                    name="healthCenterName" 
+                                    id="manualHCName"
+                                    placeholder="Health Center Name" 
+                                    class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white">
+                                <textarea 
+                                    name="healthCenterAddress" 
+                                    id="manualHCAddress"
+                                    placeholder="Address/Location" 
+                                    rows="2"
+                                    class="block w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-slate-700 dark:text-white"></textarea>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     
                     <div>

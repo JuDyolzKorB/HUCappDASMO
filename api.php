@@ -66,7 +66,8 @@ try {
             'FirstName' => $firstName,
             'MiddleName' => $middleName,
             'LastName' => $lastName,
-            'Role' => $role
+            'Role' => $role,
+            'HealthCenterID' => $_POST['healthCenterId'] ?? null
         ];
         
         if (save_data('users', [$newUser])) {
