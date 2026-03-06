@@ -64,7 +64,7 @@ $aggregatedInventory = array_values($aggregatedInventory);
             <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Inventory Status</h2>
             <p class="text-slate-500 font-medium text-sm">Real-time overview of current stock levels and expiry information.</p>
         </div>
-        <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist'): ?>
+        <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist' || $userRole === 'Warehouse Staff'): ?>
         <button onclick="openAddItemModal()" class="bg-primary hover:bg-opacity-90 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-teal-900/10 text-sm font-bold transition-all active:scale-95">
              + Add Item
          </button>
@@ -125,8 +125,10 @@ $aggregatedInventory = array_values($aggregatedInventory);
                         ?>
                         <!-- Main Item Row -->
                         <tr class="inventory-row border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer" data-category="<?php echo $filterCategory; ?>" onclick="toggleBatches('<?php echo $item['ItemID']; ?>')">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-white"><?php echo $item['ItemID']; ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900 dark:text-white"><?php echo $item['ItemName']; ?></td>
+                            <td class="px-6 py-4 text-sm font-medium text-slate-900 dark:text-white"><?php echo $item['ItemID']; ?></td>
+                            <td class="px-6 py-4 text-sm font-semibold text-slate-900 dark:text-white">
+                                <div class="max-w-[220px] truncate" title="<?php echo htmlspecialchars($item['ItemName']); ?>"><?php echo htmlspecialchars($item['ItemName']); ?></div>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo !empty($item['Brand']) ? htmlspecialchars($item['Brand']) : '<span class="text-slate-300 dark:text-slate-600">—</span>'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400"><?php echo !empty($item['DosageUnit']) ? htmlspecialchars($item['DosageUnit']) : '<span class="text-slate-300 dark:text-slate-600">—</span>'; ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-primary dark:text-teal-400"><?php echo $item['Category']; ?></td>
@@ -137,11 +139,15 @@ $aggregatedInventory = array_values($aggregatedInventory);
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                                 <div class="flex items-center justify-end space-x-2">
+                                     <!-- View Button (always visible) -->
+                                     <button onclick="event.stopPropagation(); openViewItemModal(<?php echo htmlspecialchars(json_encode($item)); ?>)" class="text-slate-400 hover:text-primary transition-colors" title="View Details">
+                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                     </button>
                                      <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist'): ?>
-                                     <button onclick="event.stopPropagation(); openEditItemModal(<?php echo htmlspecialchars(json_encode($item)); ?>)" class="text-slate-400 hover:text-primary transition-colors">
+                                     <button onclick="event.stopPropagation(); openEditItemModal(<?php echo htmlspecialchars(json_encode($item)); ?>)" class="text-slate-400 hover:text-primary transition-colors" title="Edit">
                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                      </button>
-                                     <button onclick="event.stopPropagation(); deleteItem('<?php echo $item['ItemID']; ?>')" class="text-slate-400 hover:text-red-500 transition-colors">
+                                     <button onclick="event.stopPropagation(); deleteItem('<?php echo $item['ItemID']; ?>')" class="text-slate-400 hover:text-red-500 transition-colors" title="Delete">
                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                      </button>
                                      <?php endif; ?>
@@ -198,86 +204,58 @@ $aggregatedInventory = array_values($aggregatedInventory);
     </div>
 </div>
 
-<div id="itemModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm overflow-y-auto h-full w-full z-[9999] flex items-center justify-center p-4" onclick="if(event.target === this) closeItemModal()">
-    <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
-        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50">
-            <h3 id="modalTitle" class="text-xl font-bold text-slate-900 dark:text-white">Add New Item</h3>
+<?php include 'components/add_item_modal.php'; ?>
+
+<!-- ===== Item View Modal ===== -->
+<div id="itemViewModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target===this)closeViewItemModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+            <div>
+                <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Item Details</p>
+                <h3 id="viewItemName" class="text-lg font-bold text-slate-900 dark:text-white mt-0.5 break-words max-w-sm"></h3>
+            </div>
+            <button onclick="closeViewItemModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-4 flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
-        <form id="itemForm" class="p-6 space-y-5">
-            <input type="hidden" name="action" id="formAction" value="add_item">
-            <input type="hidden" name="itemId" id="formItemId">
-            
-            <!-- Item Info -->
-            <div class="space-y-2">
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Item Name</label>
-                <input type="text" name="itemName" id="itemName" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
+        <!-- Body -->
+        <div class="px-6 py-5 grid grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">ID</p>
+                <p id="viewItemID" class="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1"></p>
             </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Brand</label>
-                    <input type="text" name="brand" id="itemBrand" placeholder="e.g. Unilab" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                </div>
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Dosage Unit</label>
-                    <input type="text" name="dosageUnit" id="dosageUnit" placeholder="e.g. 500mg, 10mL" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                </div>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Category</p>
+                <p id="viewItemType" class="text-sm font-semibold text-primary dark:text-teal-400 mt-1"></p>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-2">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
-                    <select name="itemType" id="itemType" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
-                        <option value="Medicine">Medicine</option>
-                        <option value="Supply">Supply</option>
-                        <option value="Equipment">Equipment</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit of Measure</label>
-                     <input type="text" name="unitOfMeasure" id="unitOfMeasure" required class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
-                </div>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Brand</p>
+                <p id="viewItemBrand" class="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1"></p>
             </div>
-
-            <!-- Initial Batch Section (only shown when adding a new item) -->
-            <div id="batchSection">
-                <div class="border-t border-slate-200 dark:border-slate-700 pt-4">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Initial Batch <span class="font-normal normal-case text-slate-400">(optional)</span></p>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Batch ID</label>
-                            <input type="number" name="batchId" id="batchId" min="1" placeholder="Auto-assigned if empty" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Lot Number</label>
-                            <input type="text" name="lotNumber" id="lotNumber" placeholder="e.g. LOT-2025-001" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-3 gap-4 mt-3">
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Initial Quantity</label>
-                            <input type="number" name="batchQty" id="batchQty" min="0" placeholder="0" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Unit Cost (₱)</label>
-                            <input type="number" step="0.01" name="unitCost" id="unitCostInput" min="0" placeholder="0.00" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Expiry Date</label>
-                            <input type="date" name="expiryDate" id="expiryDate" class="w-full px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white">
-                        </div>
-                    </div>
-                </div>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dosage Unit</p>
+                <p id="viewItemDosage" class="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1"></p>
             </div>
-
-            <div class="flex justify-end gap-3 pt-4">
-                <button type="button" onclick="closeItemModal()" class="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/50 rounded-lg">Cancel</button>
-                <button type="submit" class="px-5 py-2.5 text-sm font-bold text-white bg-primary rounded-lg">Save Item</button>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit of Measure</p>
+                <p id="viewItemUnit" class="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1"></p>
             </div>
-        </form>
+            <div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Stock</p>
+                <p id="viewItemQty" class="text-sm font-bold text-slate-900 dark:text-white mt-1"></p>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-3">
+            <button onclick="closeViewItemModal()" class="px-5 py-2 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">Close</button>
+            <?php if ($userRole === 'Administrator' || $userRole === 'Head Pharmacist'): ?>
+            <button onclick="switchToEdit()" class="px-5 py-2.5 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-xl transition-all active:scale-95 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit Item
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
@@ -396,10 +374,34 @@ function openEditItemModal(item) {
     document.getElementById('unitOfMeasure').value = item.Unit;
     document.getElementById('batchSection').style.display = 'none'; // hide batch section for edits
     document.getElementById('itemModal').classList.remove('hidden');
+    document.getElementById('itemModal').classList.add('flex');
 }
 
-function closeItemModal() {
-    document.getElementById('itemModal').classList.add('hidden');
+function openViewItemModal(item) {
+    // Populate read-only fields
+    document.getElementById('viewItemID').textContent    = item.ItemID;
+    document.getElementById('viewItemName').textContent  = item.ItemName;
+    document.getElementById('viewItemBrand').textContent = item.Brand || '—';
+    document.getElementById('viewItemDosage').textContent= item.DosageUnit || '—';
+    document.getElementById('viewItemType').textContent  = item.Category || '—';
+    document.getElementById('viewItemUnit').textContent  = item.Unit || '—';
+    document.getElementById('viewItemQty').textContent   = (item.TotalQuantity ?? '—').toLocaleString ? Number(item.TotalQuantity).toLocaleString() : (item.TotalQuantity ?? '—');
+
+    // Store item on the modal for the Edit button
+    document.getElementById('itemViewModal')._item = item;
+
+    // Show modal
+    document.getElementById('itemViewModal').classList.remove('hidden');
+}
+
+function closeViewItemModal() {
+    document.getElementById('itemViewModal').classList.add('hidden');
+}
+
+function switchToEdit() {
+    const item = document.getElementById('itemViewModal')._item;
+    closeViewItemModal();
+    openEditItemModal(item);
 }
 
 function deleteItem(itemId) {
@@ -416,16 +418,4 @@ function deleteItem(itemId) {
         else alert(data.message || 'Error');
     });
 }
-
-document.getElementById('itemForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    
-    fetch('api.php', { method: 'POST', body: formData })
-    .then(res => res.json())
-    .then(data => {
-        if(data.success) window.location.reload();
-        else alert(data.message || 'Error');
-    });
-});
 </script>

@@ -29,7 +29,8 @@
             // Debounce and delay the refresh. 
             // A 1.5s delay allows backend operations and local redirects to finish first.
             if (refreshTimer) clearTimeout(refreshTimer);
-            refreshTimer = setTimeout(() => {
+
+            const attemptRefresh = function () {
                 // Don't auto-refresh if we are on a processing page to avoid interrupted workflows
                 const urlParams = new URLSearchParams(window.location.search);
                 const page = urlParams.get('page');
@@ -40,9 +41,43 @@
                     return;
                 }
 
+                // IMPROVED: Check if any modal is open. 
+                // Checks for specific ID patterns, common classes, and backdrop presence
+                const modalBackdrop = document.querySelector('.backdrop-blur-sm, .bg-slate-900\\/60, .bg-slate-900\\/75');
+                const anyOpenModal = document.querySelector('[id$="Modal"]:not(.hidden), .fixed.inset-0:not(.hidden)');
+
+                let isModalOpen = !!(modalBackdrop || anyOpenModal);
+
+                // Check if user is typing in an input
+                const activeElement = document.activeElement;
+                const isInputFocused = activeElement && (
+                    activeElement.tagName === 'INPUT' ||
+                    activeElement.tagName === 'TEXTAREA' ||
+                    activeElement.tagName === 'SELECT'
+                );
+
+                // Check for "dirty" forms (any input with a value that isn't default)
+                // This is a safety catch in case focus was lost
+                const inputs = document.querySelectorAll('input:not([type="hidden"]), textarea, select');
+                let isUserTyping = false;
+                inputs.forEach(input => {
+                    if (input.value && input.value !== input.defaultValue && input.type !== 'checkbox' && input.type !== 'radio') {
+                        isUserTyping = true;
+                    }
+                });
+
+                if (isModalOpen || isInputFocused || isUserTyping) {
+                    console.log('User is interacting with the system. Deferring refresh for 5 seconds...');
+                    // Try again in 5 seconds instead of 2 for less aggressive checking
+                    refreshTimer = setTimeout(attemptRefresh, 5000);
+                    return;
+                }
+
                 console.log('Auto-refreshing page for new updates...');
                 window.location.reload();
-            }, 1500);
+            };
+
+            refreshTimer = setTimeout(attemptRefresh, 2000); // Increased initial delay to 2s
         };
 
         // List of events we care about

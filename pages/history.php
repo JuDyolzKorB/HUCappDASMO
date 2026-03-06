@@ -81,8 +81,8 @@ if (!isLoggedIn()) {
                                 <th class="px-6 py-4 text-left font-black">Quantity</th>
                             </template>
                             
-                            <template x-if="activeTab === 'hc_requisitions' || activeTab === 'warehouse_issuances' || activeTab === 'patient_list' || activeTab === 'hc_inventory_additions'">
-                                <th class="px-6 py-4 text-left font-black" x-text="activeTab === 'patient_list' ? 'Patient' : 'Health Center'"></th>
+                            <template x-if="activeTab === 'hc_requisitions' || activeTab === 'warehouse_issuances' || activeTab === 'patient_list' || activeTab === 'hc_inventory_additions' || activeTab === 'procurement_orders'">
+                                <th class="px-6 py-4 text-left font-black" x-text="activeTab === 'patient_list' ? 'Patient' : (activeTab === 'procurement_orders' ? 'Supplier' : 'Health Center')"></th>
                                 <th class="px-6 py-4 text-left font-black">Reference</th>
                             </template>
 
@@ -168,7 +168,7 @@ if (!isLoggedIn()) {
                                 </template>
 
                                 <!-- Refs -->
-                                <template x-if="activeTab === 'hc_requisitions' || activeTab === 'warehouse_issuances' || activeTab === 'patient_list' || activeTab === 'hc_inventory_additions'">
+                                <template x-if="activeTab === 'hc_requisitions' || activeTab === 'warehouse_issuances' || activeTab === 'patient_list' || activeTab === 'hc_inventory_additions' || activeTab === 'procurement_orders'">
                                     <td class="px-6 py-4">
                                         <div class="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight" x-text="row.HealthCenter || row.Patient || 'Central'"></div>
                                     </td>
@@ -224,6 +224,7 @@ function historyComponent() {
             { id: 'hc_inventory_additions', label: 'HC Arrivals' },
             { id: 'hc_requisitions', label: 'Requisitions' },
             { id: 'warehouse_issuances', label: 'Issuances' },
+            { id: 'procurement_orders', label: 'Procurement Orders' },
             { id: 'patient_list', label: 'Patient List' },
             { id: 'adjustments', label: 'Adjustments' }
         ],

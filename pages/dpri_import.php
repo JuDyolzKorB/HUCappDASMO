@@ -87,17 +87,26 @@ if ($userRole !== 'Administrator' && $userRole !== 'Head Pharmacist') {
 
             <!-- Scanned Items Table -->
             <div x-show="foundItems.length > 0" x-transition class="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-[600px]">
-                <div class="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-white/50 dark:bg-slate-800/50 backdrop-blur-md">
-                    <div class="flex items-center gap-4">
-                        <div class="px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-black" x-text="foundItems.length + ' Items Detected'"></div>
-                        <input type="text" x-model="search" placeholder="Search scanned..." class="text-xs bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-2 w-64 focus:ring-primary/20">
-                    </div>
-                    <div class="flex items-center gap-2">
-                         <button @click="clearResults()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors">Clear</button>
-                         <button @click="confirmImport()" :disabled="isImporting" class="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl text-xs font-black shadow-lg shadow-teal-900/10 transition-all flex items-center gap-2">
-                            <span x-show="!isImporting">Import Selection</span>
-                            <span x-show="isImporting" class="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></span>
-                         </button>
+                <div class="p-5 border-b border-slate-100 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md space-y-3">
+                    <div class="flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <div class="px-3 py-1 bg-primary/10 text-primary rounded-lg text-xs font-black" x-text="foundItems.length + ' Items Detected'"></div>
+                            <input type="text" x-model="search" placeholder="Search scanned..." class="text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 w-48 focus:ring-primary/20">
+                            <!-- Type Filter -->
+                            <select x-model="filterType" class="text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 font-bold text-slate-600 dark:text-slate-300 focus:ring-primary/20">
+                                <option value="">All Types</option>
+                                <option value="Medicine">Medicine</option>
+                                <option value="Supply">Supply</option>
+                                <option value="Equipment">Equipment</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                             <button @click="clearResults()" class="px-4 py-2 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors">Clear</button>
+                             <button @click="confirmImport()" :disabled="isImporting" class="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl text-xs font-black shadow-lg shadow-teal-900/10 transition-all flex items-center gap-2">
+                                <span x-show="!isImporting">Import Selection</span>
+                                <span x-show="isImporting" class="animate-spin w-3 h-3 border-2 border-white/30 border-t-white rounded-full"></span>
+                             </button>
+                        </div>
                     </div>
                 </div>
 
@@ -108,8 +117,14 @@ if ($userRole !== 'Administrator' && $userRole !== 'Head Pharmacist') {
                                 <th class="px-6 py-3 text-left">
                                     <input type="checkbox" @change="toggleAll()" :checked="allSelected" class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4">
                                 </th>
-                                <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Medicine/Generic Name</th>
-                                <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                                <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none hover:text-primary" @click="sortBy('ItemName')">
+                                    Medicine/Generic Name
+                                    <span x-show="sortField==='ItemName'" x-text="sortDir==='asc' ? ' ↑' : ' ↓'"></span>
+                                </th>
+                                <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer select-none hover:text-primary" @click="sortBy('ItemType')">
+                                    Type
+                                    <span x-show="sortField==='ItemType'" x-text="sortDir==='asc' ? ' ↑' : ' ↓'"></span>
+                                </th>
                                 <th class="px-6 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</th>
                             </tr>
                         </thead>
@@ -158,11 +173,32 @@ function dpriScanner() {
         totalProgress: 0,
         foundItems: [],
         search: '',
+        filterType: '',
+        sortField: 'ItemType',
+        sortDir: 'asc',
         allSelected: true,
 
         get filteredItems() {
-            if (!this.search) return this.foundItems;
-            return this.foundItems.filter(i => i.ItemName.toLowerCase().includes(this.search.toLowerCase()));
+            let items = this.foundItems;
+            if (this.search) items = items.filter(i => i.ItemName.toLowerCase().includes(this.search.toLowerCase()));
+            if (this.filterType) items = items.filter(i => i.ItemType === this.filterType);
+            // Sort
+            const field = this.sortField;
+            const dir = this.sortDir === 'asc' ? 1 : -1;
+            return [...items].sort((a, b) => {
+                if (a[field] < b[field]) return -1 * dir;
+                if (a[field] > b[field]) return 1 * dir;
+                return 0;
+            });
+        },
+
+        sortBy(field) {
+            if (this.sortField === field) {
+                this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortField = field;
+                this.sortDir = 'asc';
+            }
         },
 
         async handleFileSelect(e) {
@@ -300,24 +336,28 @@ function dpriScanner() {
             if (!confirm(`Import ${selected.length} items into your inventory list?`)) return;
 
             this.isImporting = true;
-            const formData = new FormData();
-            formData.append('action', 'bulk_import_items');
-            
-            selected.forEach((item, index) => {
-                formData.append(`items[${index}][ItemName]`, item.ItemName);
-                formData.append(`items[${index}][ItemType]`, item.ItemType);
-                formData.append(`items[${index}][UnitOfMeasure]`, item.UnitOfMeasure);
-            });
 
             try {
-                const res = await fetch('api.php', { method: 'POST', body: formData });
+                // Send as JSON to avoid PHP max_input_vars limit (default 1000)
+                // which silently truncates large lists sent as individual form fields
+                const res = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'bulk_import_items',
+                        items: selected
+                    })
+                });
                 const data = await res.json();
                 if (data.success) {
-                    alert(`Successfully imported ${data.count} items!`);
+                    const msg = `✅ Successfully imported ${data.count} items!` + (data.skipped > 0 ? `\n⚠️ ${data.skipped} items were skipped (duplicates or invalid).` : '');
+                    alert(msg);
                     this.foundItems = this.foundItems.filter(i => !i.selected);
-                    window.location.href = 'index.php?page=inventory';
+                    if (this.foundItems.length === 0) {
+                        window.location.href = 'index.php?page=inventory';
+                    }
                 } else {
-                    alert(data.message || 'Import failed.');
+                    alert('Import failed: ' + (data.message || 'Unknown error'));
                 }
             } catch (err) {
                 alert('Connection error during import.');

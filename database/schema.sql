@@ -33,8 +33,6 @@ DROP TABLE IF EXISTS Supplier;
 DROP TABLE IF EXISTS HealthCenters;
 DROP TABLE IF EXISTS Users;
 
-SET FOREIGN_KEY_CHECKS = 1;
-
 -- 1. User Table
 CREATE TABLE Users (
     UserID INT AUTO_INCREMENT PRIMARY KEY,
@@ -388,3 +386,4 @@ CREATE INDEX idx_inv_item ON CentralInventoryBatch(ItemID);
 CREATE INDEX idx_patient_name ON HCPatient(LName, FName);
 CREATE INDEX idx_patient_req_status ON HCPatientRequisition(StatusType);
 
+SET FOREIGN_KEY_CHECKS = 1;

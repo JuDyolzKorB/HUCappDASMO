@@ -5,8 +5,11 @@ $items = get_data('items');
 $contracts = get_data('contracts');
 ?>
 
-<div id="addPOModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4" onclick="if(event.target === this) closeAddPOModal()">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60" onclick="event.stopPropagation()">
+<div 
+    id="addPOModal" 
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[9999] flex justify-center items-center p-4 overflow-y-auto" 
+    onclick="if(event.target === this) closeAddPOModal()">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all relative border border-slate-200/60 dark:border-slate-700/60 my-8" onclick="event.stopPropagation()">
         <!-- Modal Header -->
         <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
             <h3 class="text-xl font-bold text-slate-900 dark:text-white">New Procurement Order</h3>
@@ -190,9 +193,15 @@ $contracts = get_data('contracts');
 
             <!-- Items Section -->
             <div class="space-y-3">
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Items
-                </label>
+                <div class="flex justify-between items-center">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Items
+                    </label>
+                    <button type="button" onclick="openAddItemModal()" class="text-[10px] font-black uppercase tracking-widest text-teal-600 hover:text-teal-700 transition-colors flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        New Item
+                    </button>
+                </div>
                 
                 <div id="poItemsContainer" class="space-y-2">
                     <!-- Initial item row -->
@@ -210,11 +219,11 @@ $contracts = get_data('contracts');
                                     $groups[$item['ItemType'] ?: 'Others'][] = $item;
                                 }
                                 foreach ($groups as $type => $typeItems): ?>
-                                    <optgroup label="<?php echo $type; ?>">
-                                        <?php foreach ($typeItems as $item): ?>
-                                            <option value="<?php echo $item['ItemID']; ?>"><?php echo $item['ItemName']; ?></option>
-                                        <?php endforeach; ?>
-                                    </optgroup>
+                                     <optgroup label="<?php echo $type; ?>">
+                                         <?php foreach ($typeItems as $item): ?>
+                                             <option value="<?php echo $item['ItemID']; ?>"><?php echo htmlspecialchars($item['ItemName']); ?></option>
+                                         <?php endforeach; ?>
+                                     </optgroup>
                                 <?php endforeach; ?>
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -228,13 +237,23 @@ $contracts = get_data('contracts');
                             name="quantities[]" 
                             placeholder="Qty" 
                             min="1" 
-                            class="w-24 px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all" 
+                            class="w-20 px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all" 
                             required>
+                        <input 
+                            type="text" 
+                            name="batchIds[]" 
+                            placeholder="Batch ID" 
+                            class="w-24 px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all">
+                        <input 
+                            type="text" 
+                            name="lotNumbers[]" 
+                            placeholder="Lot No" 
+                            class="w-24 px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all">
                         <input 
                             type="date" 
                             name="expiryDates[]" 
                             placeholder="Expiry Date" 
-                            class="w-36 px-4 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all">
+                            class="w-34 px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/50 transition-all">
                         <button 
                             type="button" 
                             onclick="removeItemRow(this)" 
@@ -275,7 +294,6 @@ $contracts = get_data('contracts');
         </form>
     </div>
 </div>
-</template>
 
 <script>
 function toggleSupplierInput(checkbox) {
@@ -304,11 +322,50 @@ document.getElementById('poSupplier').addEventListener('change', function() {
     // No longer filtering contracts as it's a text input
 });
 
+// Sync with Add Item Modal
+window.onItemCreated = function(newItem) {
+    console.log('New item created:', newItem);
+    // Add the new item to all existing selects in this modal
+    const selects = document.querySelectorAll('select[name="items[]"]');
+    selects.forEach(select => {
+        const option = document.createElement('option');
+        option.value = newItem.ItemID || newItem.id;
+        option.text = newItem.ItemName;
+        
+        // Find or create the 'Other' optgroup or just append to end
+        let group = select.querySelector('optgroup[label="Other"]');
+        if (!group) group = select.querySelector('optgroup[label="Others"]');
+        
+        if (group) {
+            group.appendChild(option);
+        } else {
+            select.appendChild(option);
+        }
+    });
+
+    // Also update the local itemsData cache for toggleExpiry
+    if (typeof itemsData !== 'undefined') {
+        itemsData.push({
+            ItemID: newItem.ItemID || newItem.id,
+            ItemName: newItem.ItemName,
+            UnitOfMeasure: newItem.UnitOfMeasure || newItem.Unit || ''
+        });
+    }
+
+    alert('Item "' + newItem.ItemName + '" added to the system and is now selectable.');
+};
+
 // Initial item row
 // Initial item row
+function openAddPOModal() {
+    document.getElementById('addPOModal').classList.remove('hidden');
+    document.getElementById('addPOModal').classList.add('flex');
+}
+
 function closeAddPOModal() {
-    // Dispatch event for Alpine to catch
-    window.dispatchEvent(new CustomEvent('close-add-po-modal'));
+    const modal = document.getElementById('addPOModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
     
     document.getElementById('addPOForm').reset();
     
