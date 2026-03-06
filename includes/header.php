@@ -34,38 +34,7 @@ try {
 <style>[x-cloak] { display: none !important; }</style>
 <script>
 document.addEventListener('alpine:init', () => {
-    Alpine.store('liveMode', {
-        on: true, // Integrated real-time updates are now active by default
-    });
-
-    // Global poll management
-    let pollInterval = null;
-    const startGlobalPolling = () => {
-        if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(() => {
-            if (Alpine.store('liveMode').on) {
-                // If the page defines a refresh function, use it.
-                // Otherwise do a full reload but ONLY if no modals are open
-                const hasOpenModals = document.querySelector('[role="dialog"]:not([style*="display: none"])') !== null;
-                if (window.refreshPageData && typeof window.refreshPageData === 'function') {
-                    window.refreshPageData();
-                } else if (!hasOpenModals) {
-                    // Full reload fallback for static pages
-                    // Filter out critical interactive pages where reload might lose state
-                    const sensitivePages = ['login', 'signup', 'settings'];
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const currentPage = urlParams.get('page') || 'dashboard';
-                    
-                    if (!sensitivePages.includes(currentPage)) {
-                        console.log('Live Mode: Auto-refreshing page...');
-                        location.reload();
-                    }
-                }
-            }
-        }, 30000); // 30 seconds global poll
-    };
-
-    startGlobalPolling();
+    // Live syncing removed by user request
 });
 </script>
 <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/60">
@@ -145,18 +114,6 @@ document.addEventListener('alpine:init', () => {
 
         <!-- Right Side: Integrated Live Status & Profile -->
         <div class="flex items-center gap-3">
-            <!-- Integrated Live Status Indicator -->
-            <div x-data x-cloak class="flex items-center gap-2 px-3 py-1.5 bg-slate-100/30 dark:bg-slate-800/30 rounded-xl h-10 border border-transparent">
-                <div class="flex items-center gap-1.5">
-                    <div class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-                    </div>
-                    <span class="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400">Live Sync</span>
-                </div>
-            </div>
-
-            <div class="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden md:block"></div>
 
             <!-- Profile Dropdown -->
             <div class="relative" x-data="{ open: false }" @click.outside="open = false">

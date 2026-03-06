@@ -5,7 +5,15 @@ require_once 'includes/auth.php';
 
 header('Content-Type: application/json');
 
-$action = $_POST['action'] ?? '';
+// Support both JSON body (for bulk operations) and regular POST
+$jsonBody = null;
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+if (stripos($contentType, 'application/json') !== false) {
+    $raw = file_get_contents('php://input');
+    $jsonBody = json_decode($raw, true) ?? [];
+}
+
+$action = $jsonBody['action'] ?? $_POST['action'] ?? '';
 
 try {
     if ($action === 'login') {
@@ -92,13 +100,13 @@ try {
             'MiddleName' => $middleName,
             'LastName' => $lastName,
             'Role' => $role,
-            'HealthCenterID' => $_POST['healthCenterId'] ?? null
+            'HealthCenterID' => !empty($_POST['healthCenterId']) ? $_POST['healthCenterId'] : null
         ];
         
         if (save_data('users', [$newUser])) {
              // Proactively trigger provisioning if a health center is assigned
-             if ($healthCenterId) {
-                Database::getHCConnection($healthCenterId);
+             if ($newUser['HealthCenterID']) {
+                Database::getHCConnection($newUser['HealthCenterID']);
              }
 
              // UserID is unknown here unless we fetch or refactor save_data to return it.
@@ -363,7 +371,8 @@ try {
                 log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Success', "Created requisition with " . count($newReq['RequisitionItems']) . " items");
                 echo json_encode(['success' => true, 'message' => 'Requisition created successfully']);
             } else {
-                echo json_encode(['success' => false, 'message' => 'Failed to save requisition to database']);
+                log_security_event($_SESSION['user']['UserID'], 'Requisition', 'Failure', "Failed to save requisition. Check server logs.");
+                echo json_encode(['success' => false, 'message' => 'Failed to save requisition to database. Please check server logs.']);
             }
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Server error occurred while saving requisition']);
@@ -1226,11 +1235,78 @@ try {
                 }
             }
 
-            echo json_encode(['success' => true]);
+            echo json_encode([
+                'success' => true,
+                'id' => $newItemId,
+                'item' => [
+                    'ItemID' => $newItemId,
+                    'ItemName' => $itemName,
+                    'Brand' => $brand ?? '',
+                    'DosageUnit' => $dosageUnit ?? '',
+                    'Category' => $itemType ?? '',
+                    'Unit' => $unit ?? ''
+                ]
+            ]);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save item']);
         }
-        
+
+    } elseif ($action === 'bulk_import_items') {
+        // Bulk import from DPRI scanner
+        if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['Role'], ['Administrator', 'Head Pharmacist'])) {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        // Read from JSON body (bypasses max_input_vars limit) or fall back to POST
+        $items = $jsonBody['items'] ?? $_POST['items'] ?? [];
+        if (empty($items)) {
+            echo json_encode(['success' => false, 'message' => 'No items provided']);
+            exit;
+        }
+
+        // Allow enough time for large imports
+        set_time_limit(120);
+
+        $imported = 0;
+        $skipped = 0;
+
+        global $db;
+        foreach ($items as $item) {
+            $name = trim($item['ItemName'] ?? '');
+            $type = trim($item['ItemType'] ?? 'Medicine');
+            $unit = trim($item['UnitOfMeasure'] ?? '');
+
+            if (empty($name)) { $skipped++; continue; }
+
+            // Check for duplicates (case-insensitive)
+            $existing = $db->fetchOne("SELECT ItemID FROM Item WHERE LOWER(ItemName) = LOWER(?)", [$name]);
+            if ($existing) { $skipped++; continue; }
+
+            $res = $db->execute(
+                "INSERT INTO Item (ItemName, ItemType, UnitOfMeasure) VALUES (?, ?, ?)",
+                [$name, $type, $unit]
+            );
+
+            if ($res) {
+                $imported++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        if ($imported > 0) {
+            $db->broadcastUpdate('inventory_updated');
+            log_security_event($_SESSION['user']['UserID'], 'DPRI Import', 'Success', "Bulk imported $imported items ($skipped skipped)");
+        }
+
+        echo json_encode([
+            'success' => true,
+            'count' => $imported,
+            'skipped' => $skipped,
+            'message' => "Imported $imported items. $skipped were skipped (duplicates or invalid)."
+        ]);
+
     } elseif ($action === 'update_item') {
         $itemId = $_POST['itemId'] ?? ''; // This might be 'I0001' or '1'
         $itemName = $_POST['itemName'] ?? '';
@@ -1536,6 +1612,23 @@ try {
                     JOIN Item i ON pri.ItemID = i.ItemID
                     LEFT JOIN Users u ON pr.UserID = u.UserID
                     ORDER BY pr.RequestDate DESC
+                    LIMIT ?
+                ", [$limit]);
+            } elseif ($type === 'procurement_orders') {
+                $data = $db->fetchAll("
+                    SELECT 
+                        po.PODate as Date,
+                        po.PONumber as Reference,
+                        po.SupplierName as HealthCenter,
+                        i.ItemName,
+                        poi.QuantityOrdered as Quantity,
+                        po.StatusType as Status,
+                        CONCAT(u.FName, ' ', u.LName) as User
+                    FROM ProcurementOrder po
+                    JOIN ProcurementOrderItem poi ON po.POID = poi.POID
+                    JOIN Item i ON poi.ItemID = i.ItemID
+                    LEFT JOIN Users u ON po.UserID = u.UserID
+                    ORDER BY po.PODate DESC
                     LIMIT ?
                 ", [$limit]);
             } elseif ($type === 'hc_inventory_additions') {
